@@ -6,9 +6,9 @@ from typing import List, Tuple, Union
 import PIL
 from PIL import Image, ImageDraw
 
-from preprocessor.exceptions.exceptions import ImageProcessException
-from preprocessor.preprocessing_logic.parse_textlines import Coordinate
-from utils.logging.logger import Logger
+from flow_preprocessor.exceptions.exceptions import ImageProcessException
+from flow_preprocessor.preprocessing_logic.parse_textlines import Coordinate
+from flow_preprocessor.utils.logging.logger import Logger
 
 
 # ===============================================================================

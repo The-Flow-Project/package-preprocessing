@@ -7,13 +7,13 @@ from typing import List, Optional, Union, Dict
 
 from PIL.Image import Image
 
-from preprocessor.api_interaction.github_interaction import GitHubManager
-from preprocessor.preprocessing_logic.fetch_images import ImageDownloader
-from preprocessor.preprocessing_logic.parse_textlines import PageParser, Page
-from preprocessor.preprocessing_logic.process_images import ImageProcessor
-from preprocessor.preprocessing_logic.status import Status
-from utils.logging.logger import Logger
-from preprocessor.exceptions.exceptions import ImageProcessException, ImageFetchException, ParseTextLinesException
+from flow_githubmanager.github_interaction import GitHubManager
+from flow_preprocessor.preprocessing_logic.fetch_images import ImageDownloader
+from flow_preprocessor.preprocessing_logic.parse_textlines import PageParser, Page
+from flow_preprocessor.preprocessing_logic.process_images import ImageProcessor
+from flow_preprocessor.preprocessing_logic.status import Status
+from flow_preprocessor.utils.logging.logger import Logger
+from flow_preprocessor.exceptions.exceptions import ImageProcessException, ImageFetchException, ParseTextLinesException
 
 
 # ===============================================================================

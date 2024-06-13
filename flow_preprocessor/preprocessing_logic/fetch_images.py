@@ -6,9 +6,9 @@ from typing import List, Optional
 from lxml import etree as et
 import requests
 
-from preprocessor.exceptions.exceptions import ImageFetchException
-from preprocessor.preprocessing_logic.parse_textlines import Page
-from utils.logging.logger import Logger
+from flow_preprocessor.exceptions.exceptions import ImageFetchException
+from flow_preprocessor.preprocessing_logic.parse_textlines import Page
+from flow_preprocessor.utils.logging.logger import Logger
 
 
 # ===============================================================================

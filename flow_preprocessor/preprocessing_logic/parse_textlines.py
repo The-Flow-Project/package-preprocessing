@@ -5,8 +5,8 @@ import re
 from typing import List, Dict, Optional
 from lxml import etree as et
 
-from preprocessor.exceptions.exceptions import ParseTextLinesException
-from utils.logging.logger import Logger
+from flow_preprocessor.exceptions.exceptions import ParseTextLinesException
+from flow_preprocessor.utils.logging.logger import Logger
 
 
 # ===============================================================================
