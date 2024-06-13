@@ -1,0 +1,109 @@
+# ===============================================================================
+# IMPORT STATEMENTS
+# ===============================================================================
+import os
+from typing import List, Optional
+from lxml import etree as et
+import requests
+
+from preprocessor.exceptions.exceptions import ImageFetchException
+from preprocessor.preprocessing_logic.parse_textlines import Page
+from utils.logging.logger import Logger
+
+
+# ===============================================================================
+# CLASS
+# ===============================================================================
+class ImageDownloader:
+    """
+    Download images from Transkribus and eScriptorium via image URL.
+
+    :logger: Logger instance
+    """
+    logger = Logger(log_file="logs/fetch_images.log").get_logger()
+
+# ===============================================================================
+# METHODS
+# ===============================================================================
+    def __init__(self) -> None:
+        """
+        Initialise the lists of failed downloads, failed image processings and successful image processings.
+
+        :param self.failed_downloads: List of failed downloads.
+        :param self.successful_downloads: List of successful downloads.
+        :param self.failed_image_processings: List of failed image processings.
+
+        """
+        self.failed_downloads: List[str] = []
+        self.failed_processing: List[str] = []
+        self.successes: List[str] = []
+
+    def _request_image_via_url(self, url: str, filename: str) -> None:
+        """
+        Request single image from Transkribus and eScriptorium.
+
+        :param url: the image url
+        :param filename: the image filename
+        """
+        response = requests.get(url)
+        response.raise_for_status()
+        with open(filename, 'wb') as file:
+            file.write(response.content)
+        self.logger.info('File downloaded: %s', filename)
+
+    def fetch_image(self, page: Page, img_output: str) -> None:
+        """
+        Fetch images from Transkribus and eScriptorium.
+
+        :param page: input page object.
+        :param img_output: the output destination for the images.
+        """
+        image_filename: Optional[str] = None
+        try:
+            image_filename = page.image_file_name
+            image_url = page.metadata.image_url
+
+            if image_filename is not None:
+                destination_path = os.path.join(img_output, image_filename)
+                self._request_image_via_url(image_url, destination_path)
+                self.successes.append(destination_path)
+
+        except requests.exceptions.RequestException as e:
+            self.failed_downloads.append(image_filename)
+            self.logger.error('Failed to download file %s: %s', image_filename, str(e))
+            raise ImageFetchException('Failed to download file %s.', e)
+        except FileNotFoundError as e:
+            self.logger.error('XML file not found: %s', page, str(e))
+            raise ImageFetchException('XML file not found: %s', e)
+        except (et.XMLSyntaxError, et.ParseError, IndexError, TypeError, ValueError) as e:
+            self.logger.error('Error parsing file %s: %s', page, str(e))
+            if image_filename is not None:
+                self.failed_processing.append(image_filename)
+            raise ImageFetchException('Error parsing file %s: %s', e)
+        except Exception as e:
+            self.logger.error('An unexpected error occurred for file %s: %s', page, str(e))
+            if image_filename is not None:
+                self.failed_processing.append(image_filename)
+            raise ImageFetchException('An unexpected error occurred for file %s: %s', e)
+
+    def get_failed_downloads(self) -> List[str]:
+        """
+        Retrieve the names of the XML files which failed during download.
+
+        :return: List of failed downloads.
+        """
+        return self.failed_downloads
+
+    def get_failed_processing(self) -> List[str]:
+        """
+        Retrieve the names of the XML files which failed during processing (i.e. due to parsing errors).
+
+        :return: List of names of the XML files which could not be processed.
+        """
+        return self.failed_processing
+
+    def get_successes(self) -> List[str]:
+        """
+        Retrieve the names of the XML files which were successfully downloaded and processed.
+        """
+        return self.successes
