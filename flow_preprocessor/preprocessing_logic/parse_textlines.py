@@ -2,7 +2,7 @@
 # IMPORT STATEMENTS
 # ===============================================================================
 import re
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any, Union
 from lxml import etree as et
 
 from flow_preprocessor.exceptions.exceptions import ParseTextLinesException
@@ -341,27 +341,27 @@ class PageParser:
             baseline_points = [Coordinate(int(p.split(",")[0]), int(p.split(",")[1])) for p in points_list]
         return baseline_points
 
-    def get_abbreviations(self, text_line: et.Element) -> List[Dict[str, str]]:
+    def get_abbreviations(self, text_line: et.Element) -> List[Dict[str, Union[str, int]]]:
         """
         get the abbreviations for a given line.
 
         :param: a text line from an XML file.
         :return: list of dictionaries containing offset, length and expansion.
         """
-        abbreviations: List[Dict[str, str]] = []
+        abbreviations: List[Dict[str, Union[str, int]]] = []
         custom_attr: str = text_line.get('custom')
         if custom_attr is not None:
             split_string: List[str] = custom_attr.split('}')
             for abbreviation_str in split_string:
                 if re.search('(abbrev).*(expansion)', abbreviation_str):
-                    abbreviation: Dict[str, str] = {}
+                    abbreviation: Dict[str, Union[str, int]] = {}
                     parts: List[str] = abbreviation_str.strip().strip('abbrev {').rstrip(';').replace(' ', '').split(';')
                     for part in parts:
                         p: List[str] = part.split(':')
                         if p[0] == 'expansion':
                             abbreviation[p[0]] = p[1]
                         else:
-                            abbreviation[p[0]] = str(int(p[1]))  # converting to string to maintain consistency
+                            abbreviation[p[0]] = int(p[1])
                     if 'expansion' in abbreviation.keys():
                         abbreviations.append(abbreviation)
         return abbreviations

@@ -48,7 +48,7 @@ class FetchImagesTest(unittest.TestCase):
 
         self.assertEqual(self.dataset_size, processed_dataset_size)
 
-    @patch('preprocessor.preprocessing_logic.fetch_images.requests.get')
+    @patch('flow_preprocessor.preprocessing_logic.fetch_images.requests.get')
     def test_request_image_via_url(self, mock_get: MagicMock):
         """
         Test case to ensure that images are requested correctly via URL.

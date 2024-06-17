@@ -60,9 +60,8 @@ class ProcessImagesTest(unittest.TestCase):
                                      []
                                      )
 
-    @patch('preprocessor.preprocessing_logic.process_images.Image.open')
+    @patch('flow_preprocessor.preprocessing_logic.process_images.Image.open')
     def test_load_image(self, mock_open):
-        # Assuming 'xml_file_transkribus' is supposed to be an image file
         image_file_extensions = ('.jpg', '.jpeg', '.png', '.bmp', '.gif')
         if not self.image_transkribus.lower().endswith(image_file_extensions):
             self.fail(f"Input file '{self.image_transkribus}' is not an image file")
