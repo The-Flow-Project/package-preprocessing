@@ -3,7 +3,8 @@
 # ===============================================================================
 import os
 import time
-from typing import List, Optional, Union, Dict
+from glob import glob
+from typing import List, Optional, Dict
 
 from PIL.Image import Image
 
@@ -19,30 +20,13 @@ from flow_preprocessor.exceptions.exceptions import ImageProcessException, Image
 # ===============================================================================
 # CLASS
 # ===============================================================================
-# TODO: What about directly using glob.glob in the code instead of this method with os.walk?
-def collect_all_file_paths(directory) -> List[Union[str, bytes]]:
-    """
-    Collect all file paths in a directory.
-
-    :param directory: The directory to search for files.
-    :return: A list of file paths.
-    """
-    file_paths: List[Union[str, bytes]] = []
-    for root, _, files in os.walk(directory):
-        for file in files:
-            file_paths.append(os.path.join(root, file))
-    return file_paths
-
 
 class Preprocessor:
     """
     Perform preprocessing steps.
-
-    :logger: Logger instance.
     """
-    logger = Logger(log_file="logs/fetch_images.log").get_logger()
 
-    def __init__(self, directory: str = "/tmp", github_access_token: Optional[str] = None) -> None:
+    def __init__(self, uuid: str, directory: str = "/tmp", github_access_token: Optional[str] = None) -> None:
         """
         initialize parameters.
 
@@ -50,17 +34,21 @@ class Preprocessor:
         :param self.image_downloader: ImageDownloader instance.
         :param self.status: Status instance.
         :param self.github_manager: GitHubManager instance.
+        :param self.uuid: the UUID of the preprocessors process.
+        :param self.logger: Logger instance.
         """
         self.image_processor = ImageProcessor()
         self.image_downloader = ImageDownloader()
-        self.status = Status(directory)
+        self.status = Status(os.path.join(directory, uuid))
         self.github_manager = GitHubManager(github_access_token)
+        self.uuid = uuid
+        self.logger = Logger(log_file=f"logs/preprocess_{uuid}.log").get_logger()
 
     def preprocess(self,
                    repo_name: str,
                    repo_folder: str,
-                   in_path: str,
-                   out_path: str,
+                   in_path: str = "/tmp",
+                   out_path: str = "/tmp_preprocessed",
                    crop: bool = False,
                    abbrev: bool = False,
                    stop_on_fail: bool = True) -> None:
@@ -69,16 +57,19 @@ class Preprocessor:
 
         :param repo_name: the name of the repository the results are fetched from and pushed to.
         :param repo_folder: the folder in the repository the files are fetched from.
-        :param in_path: the path the XML files are saved to.
-        :param out_path: the path the preprocessed data is saved to.
+        :param in_path: the path the XML files are saved to - UUID will be a subfolder.
+        :param out_path: the path the preprocessed data is saved to - UUID will be a subfolder.
         :param crop: whether to crop images.
         :param abbrev: whether to expand abbreviations in text.
         :param stop_on_fail: whether to stop processing on failure.
         """
 
         # TODO: Is there a need the fetch_files method returns the filename/content dict?
+        in_path = os.path.join(in_path, self.uuid)
+        out_path = os.path.join(out_path, self.uuid)
+
         _ = self.github_manager.fetch_files(repo_name, repo_folder, ".xml", in_path)
-        files_download = collect_all_file_paths(in_path)
+        files_download = glob(f'{in_path}/**/*', recursive=True)
         self.preprocess_xml_file_list(
             files_download,
             in_path,
@@ -87,7 +78,7 @@ class Preprocessor:
             abbrev,
             crop
         )
-        files_upload = collect_all_file_paths(out_path)
+        files_upload = glob(f'{out_path}/**/*', recursive=True)
         self.github_manager.upload_documents(repo_name, files_upload, commit_message="Preprocessed files")
 
     def preprocess_xml_file_list(self,
@@ -107,6 +98,9 @@ class Preprocessor:
         :param abbrev: Whether to expand abbreviations in text.
         :param crop: Whether to crop images.
         """
+        in_path = os.path.join(in_path, self.uuid)
+        out_path = os.path.join(out_path, self.uuid)
+
         file_counter = 1
         start_time = time.time()
         for xml_file in page_xml_list:
@@ -147,6 +141,8 @@ class Preprocessor:
         :param xml_file: The XML file to be processed.
         """
         page_parser = PageParser(xml_file)
+        in_path = os.path.join(in_path, self.uuid)
+        out_path = os.path.join(out_path, self.uuid)
 
         file_name = page_parser.get_image_file_name()
         metadata = page_parser.get_metadata()
@@ -185,6 +181,7 @@ class Preprocessor:
         :param gt_dict: Dictionary containing line names and texts.
         :param out_path: The output path where the file will be saved.
         """
+        out_path = os.path.join(out_path, self.uuid)
         file_path = os.path.join(out_path, 'gt.txt')
 
         with open(file_path, "w") as txt_file:
@@ -202,5 +199,6 @@ class Preprocessor:
         :param out_path: The output path where the file will be saved.
         :param filename: The name of the file.
         """
+        out_path = os.path.join(out_path, self.uuid)
         filepath = os.path.join(out_path, filename)
         image.save(filepath)

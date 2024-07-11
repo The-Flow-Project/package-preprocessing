@@ -31,7 +31,8 @@ class ImageProcessor:
         """
         self.failed_processing: List[str] = []
 
-    def _load_image(self, image_path: str) -> Image:
+    @staticmethod
+    def _load_image(image_path: str) -> Image:
         """
         Load image.
 

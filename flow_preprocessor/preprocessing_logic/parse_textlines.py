@@ -2,7 +2,7 @@
 # IMPORT STATEMENTS
 # ===============================================================================
 import re
-from typing import List, Dict, Optional, Any, Union
+from typing import List, Dict, Optional, Union
 from lxml import etree as et
 
 from flow_preprocessor.exceptions.exceptions import ParseTextLinesException
@@ -51,8 +51,8 @@ class Coordinate:
         """
         return min(coord.x for coord in coordinates)
 
-    @classmethod
-    def max_x(cls, coordinates:  List['Coordinate']) -> float:
+    @staticmethod
+    def max_x(coordinates:  List['Coordinate']) -> float:
         """set maximum x coordinate.
 
         :param coordinates: list of coordinates.
@@ -60,13 +60,13 @@ class Coordinate:
         """
         return max(coord.x for coord in coordinates)
 
-    @classmethod
-    def min_y(cls, coordinates: List['Coordinate']) -> float:
+    @staticmethod
+    def min_y(coordinates: List['Coordinate']) -> float:
         """set minimum y coordinate."""
         return min(coord.y for coord in coordinates)
 
-    @classmethod
-    def max_y(cls, coordinates: List['Coordinate']) -> float:
+    @staticmethod
+    def max_y(coordinates: List['Coordinate']) -> float:
         """set maximum y coordinate."""
         return max(coord.y for coord in coordinates)
 
@@ -115,7 +115,7 @@ class Line:
 
     def get_output_filename(self) -> str:
         """construct image file name."""
-        out_image_name = re.sub(r"\.([^\.]*?)$", r".{0}.\1".format(self.line_number), self.line_document)
+        out_image_name = re.sub(r"\.([^.]*?)$", r".{0}.\1".format(self.line_number), self.line_document)
         return out_image_name
 
     def get_line_text(self, abbrev=False):
@@ -238,7 +238,12 @@ class PageParser:
                 line_coordinates = self.get_coordinates(text_line, self.xmlns)
                 line_baseline_points = self.get_baseline(text_line, self.xmlns)
                 abbreviations = self.get_abbreviations(text_line)
-                line = Line(str(line_number), line_text, line_document, line_coordinates, line_baseline_points, abbreviations)
+                line = Line(str(line_number),
+                            line_text,
+                            line_document,
+                            line_coordinates,
+                            line_baseline_points,
+                            abbreviations)
                 line_list.append(line)
                 line_number += 1
             self.logger.info("Successfully processed lines in file %s", line_document)
@@ -303,7 +308,8 @@ class PageParser:
             image_url = transkribus_metadata.get('imgUrl')
         return image_url
 
-    def get_line_text_string(self, text_line: et.Element, xmlns: str) -> str:
+    @staticmethod
+    def get_line_text_string(text_line: et.Element, xmlns: str) -> str:
         """
         Get line text from XML file.
 
@@ -314,7 +320,8 @@ class PageParser:
         unicode_text: str = text_line.find(f"./{xmlns}TextEquiv/{xmlns}Unicode").text.strip()
         return unicode_text
 
-    def get_coordinates(self, text_line: et.Element, xmlns: str) -> List[Coordinate]:
+    @staticmethod
+    def get_coordinates(text_line: et.Element, xmlns: str) -> List[Coordinate]:
         """
         Get coordinates from the XML file.
 
@@ -328,7 +335,8 @@ class PageParser:
         coordinates: List[Coordinate] = [Coordinate(int(p.split(",")[0]), int(p.split(",")[1])) for p in points_list]
         return coordinates
 
-    def get_baseline(self, text_line: et.Element, xmlns: str) -> List[Coordinate]:
+    @staticmethod
+    def get_baseline(text_line: et.Element, xmlns: str) -> List[Coordinate]:
         """
         Get a list of baseline coordinates.
 
@@ -344,7 +352,8 @@ class PageParser:
             baseline_points = [Coordinate(int(p.split(",")[0]), int(p.split(",")[1])) for p in points_list]
         return baseline_points
 
-    def get_abbreviations(self, text_line: et.Element) -> List[Dict[str, Union[str, int]]]:
+    @staticmethod
+    def get_abbreviations(text_line: et.Element) -> List[Dict[str, Union[str, int]]]:
         """
         get the abbreviations for a given line.
 
@@ -358,7 +367,12 @@ class PageParser:
             for abbreviation_str in split_string:
                 if re.search('(abbrev).*(expansion)', abbreviation_str):
                     abbreviation: Dict[str, Union[str, int]] = {}
-                    parts: List[str] = abbreviation_str.strip().strip('abbrev {').rstrip(';').replace(' ', '').split(';')
+                    parts: List[str] = (abbreviation_str
+                                        .strip()
+                                        .strip('abbrev {')
+                                        .rstrip(';')
+                                        .replace(' ', '')
+                                        .split(';'))
                     for part in parts:
                         p: List[str] = part.split(':')
                         if p[0] == 'expansion':

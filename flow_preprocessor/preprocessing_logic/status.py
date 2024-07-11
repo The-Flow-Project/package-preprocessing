@@ -31,7 +31,8 @@ class Status:
             json.dump(data, status_file)
             status_file.write('\n')
 
-    def get_current_timestamp(self, timestamp_format: str = "%Y-%m-%dT%H:%M:%S") -> str:
+    @staticmethod
+    def get_current_timestamp(timestamp_format: str = "%Y-%m-%dT%H:%M:%S") -> str:
         """
         Get current timestamp.
 

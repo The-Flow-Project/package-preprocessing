@@ -30,4 +30,3 @@ class Logger:
 
     def get_logger(self):
         return self.logger
-

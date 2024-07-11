@@ -8,4 +8,3 @@ class ImageProcessException(Exception):
 
 class ParseTextLinesException(Exception):
     pass
-
