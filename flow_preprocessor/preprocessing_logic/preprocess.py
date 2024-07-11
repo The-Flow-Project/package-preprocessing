@@ -19,6 +19,21 @@ from flow_preprocessor.exceptions.exceptions import ImageProcessException, Image
 # ===============================================================================
 # CLASS
 # ===============================================================================
+# TODO: What about directly using glob.glob in the code instead of this method with os.walk?
+def collect_all_file_paths(directory) -> List[Union[str, bytes]]:
+    """
+    Collect all file paths in a directory.
+
+    :param directory: The directory to search for files.
+    :return: A list of file paths.
+    """
+    file_paths: List[Union[str, bytes]] = []
+    for root, _, files in os.walk(directory):
+        for file in files:
+            file_paths.append(os.path.join(root, file))
+    return file_paths
+
+
 class Preprocessor:
     """
     Perform preprocessing steps.
@@ -41,32 +56,39 @@ class Preprocessor:
         self.status = Status(directory)
         self.github_manager = GitHubManager(github_access_token)
 
-    def preprocess(self, repo_name: str, in_path: str, out_path: str) -> None:
+    def preprocess(self,
+                   repo_name: str,
+                   repo_folder: str,
+                   in_path: str,
+                   out_path: str,
+                   crop: bool = False,
+                   abbrev: bool = False,
+                   stop_on_fail: bool = True) -> None:
         """
         Perform preprocessing steps: fetch XML files from GitHub, preprocess and push to GitHub.
 
         :param repo_name: the name of the repository the results are fetched from and pushed to.
+        :param repo_folder: the folder in the repository the files are fetched from.
         :param in_path: the path the XML files are saved to.
-        :param out_path: the path the XML files are collected from.
+        :param out_path: the path the preprocessed data is saved to.
+        :param crop: whether to crop images.
+        :param abbrev: whether to expand abbreviations in text.
+        :param stop_on_fail: whether to stop processing on failure.
         """
-        self.github_manager.fetch_xml_files(repo_name, in_path)
-        files_download = self.collect_all_file_paths(in_path)
-        self.preprocess_xml_file_list(files_download, in_path, out_path, stop_on_fail=True, abbrev=False, crop=False)
-        files_upload = self.collect_all_file_paths(out_path)
-        self.github_manager.upload_documents(repo_name, files_upload)
 
-    def collect_all_file_paths(self, directory) -> List[Union[str, bytes]]:
-        """
-        Collect all file paths in a directory.
-
-        :param directory: The directory to search for files.
-        :return: A list of file paths.
-        """
-        file_paths: List[Union[str, bytes]] = []
-        for root, _, files in os.walk(directory):
-            for file in files:
-                file_paths.append(os.path.join(root, file))
-        return file_paths
+        # TODO: Is there a need the fetch_files method returns the filename/content dict?
+        _ = self.github_manager.fetch_files(repo_name, repo_folder, ".xml", in_path)
+        files_download = collect_all_file_paths(in_path)
+        self.preprocess_xml_file_list(
+            files_download,
+            in_path,
+            out_path,
+            stop_on_fail,
+            abbrev,
+            crop
+        )
+        files_upload = collect_all_file_paths(out_path)
+        self.github_manager.upload_documents(repo_name, files_upload, commit_message="Preprocessed files")
 
     def preprocess_xml_file_list(self,
                                  page_xml_list: List[str],

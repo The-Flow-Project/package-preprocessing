@@ -296,7 +296,10 @@ class PageParser:
                                                                                 "/gts/pagecontent/2019-07-15}"):
             image_url: str = self.root.find(f".//{self.xmlns}Page").get('imageURL')
         else:
-            transkribus_metadata = self.root.xpath("//prefix:Metadata/prefix:TranskribusMetadata", namespaces=self.namespace)[0]
+            transkribus_metadata = self.root.xpath(
+                "//prefix:Metadata/prefix:TranskribusMetadata",
+                namespaces=self.namespace
+            )[0]
             image_url = transkribus_metadata.get('imgUrl')
         return image_url
 
