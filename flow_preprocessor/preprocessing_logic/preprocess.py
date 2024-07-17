@@ -21,12 +21,14 @@ from flow_preprocessor.exceptions.exceptions import ImageProcessException, Image
 # CLASS
 # ===============================================================================
 
+
+# TODO: Why is everything logged multiple times?
 class Preprocessor:
     """
     Perform preprocessing steps.
     """
 
-    def __init__(self, uuid: str, directory: str = "/tmp", github_access_token: Optional[str] = None) -> None:
+    def __init__(self, uuid: str, directory: str = "tmp", github_access_token: Optional[str] = None) -> None:
         """
         initialize parameters.
 
@@ -42,13 +44,18 @@ class Preprocessor:
         self.status = Status(os.path.join(directory, uuid))
         self.github_manager = GitHubManager(github_access_token)
         self.uuid = uuid
-        self.logger = Logger(log_file=f"logs/preprocess_{uuid}.log").get_logger()
+        self.logger = Logger(log_file=f"logs/{uuid}_preprocess.log").get_logger()
+
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        self.directory = directory
 
     def preprocess(self,
                    repo_name: str,
                    repo_folder: str,
-                   in_path: str = "/tmp",
-                   out_path: str = "/tmp_preprocessed",
+                   in_path: str = "",
+                   out_path: str = "preprocessed",
                    crop: bool = False,
                    abbrev: bool = False,
                    stop_on_fail: bool = True) -> None:
@@ -65,9 +72,16 @@ class Preprocessor:
         """
 
         # TODO: Is there a need the fetch_files method returns the filename/content dict?
-        in_path = os.path.join(in_path, self.uuid)
-        out_path = os.path.join(out_path, self.uuid)
+        in_path = os.path.join(self.directory, in_path, self.uuid)
+        out_path = os.path.join(self.directory, out_path, self.uuid)
 
+        if not os.path.exists(in_path):
+            os.makedirs(in_path)
+        if not os.path.exists(out_path):
+            os.makedirs(out_path)
+
+        print(f"Fetching files from {repo_name} in folder {repo_folder}...")
+        print(f"Paths: {in_path} -> {out_path}")
         _ = self.github_manager.fetch_files(repo_name, repo_folder, ".xml", in_path)
         files_download = glob(f'{in_path}/**/*', recursive=True)
         self.preprocess_xml_file_list(
@@ -98,8 +112,8 @@ class Preprocessor:
         :param abbrev: Whether to expand abbreviations in text.
         :param crop: Whether to crop images.
         """
-        in_path = os.path.join(in_path, self.uuid)
-        out_path = os.path.join(out_path, self.uuid)
+        # in_path = os.path.join(self.directory, in_path, self.uuid)
+        # out_path = os.path.join(self.directory, out_path, self.uuid)
 
         file_counter = 1
         start_time = time.time()
@@ -141,15 +155,15 @@ class Preprocessor:
         :param xml_file: The XML file to be processed.
         """
         page_parser = PageParser(xml_file)
-        in_path = os.path.join(in_path, self.uuid)
-        out_path = os.path.join(out_path, self.uuid)
+        # in_path = os.path.join(self.directory, in_path, self.uuid)
+        # out_path = os.path.join(self.directory, out_path, self.uuid)
 
         file_name = page_parser.get_image_file_name()
         metadata = page_parser.get_metadata()
         lines_per_page = page_parser.process_lines_from_xml_file()
         page = Page(file_name, lines_per_page, metadata)
         gt_dict = {}
-        self.image_downloader.fetch_image(page, out_path)
+        self.image_downloader.fetch_image(page, in_path)
         for line in page.lines:
             line_name = line.get_output_filename()
             if not abbrev:
@@ -174,22 +188,8 @@ class Preprocessor:
 
             self._save_gt_dict(gt_dict, out_path)
 
-    def _save_gt_dict(self, gt_dict: Dict[str, str], out_path: str) -> None:
-        """
-        Save ground truth dictionary to a file.
-
-        :param gt_dict: Dictionary containing line names and texts.
-        :param out_path: The output path where the file will be saved.
-        """
-        out_path = os.path.join(out_path, self.uuid)
-        file_path = os.path.join(out_path, 'gt.txt')
-
-        with open(file_path, "w") as txt_file:
-            for line_name, line_text in gt_dict.items():
-                txt_file.write(f"{line_name}\t{line_text}\n")
-
-    def _save_image_per_line(self,
-                             image: Image,
+    @staticmethod
+    def _save_image_per_line(image: Image,
                              out_path: str,
                              filename: str) -> None:
         """
@@ -199,6 +199,21 @@ class Preprocessor:
         :param out_path: The output path where the file will be saved.
         :param filename: The name of the file.
         """
-        out_path = os.path.join(out_path, self.uuid)
+        # out_path = os.path.join(out_path, self.uuid)
         filepath = os.path.join(out_path, filename)
         image.save(filepath)
+
+    @staticmethod
+    def _save_gt_dict(gt_dict: Dict[str, str], out_path: str) -> None:
+        """
+        Save ground truth dictionary to a file.
+
+        :param gt_dict: Dictionary containing line names and texts.
+        :param out_path: The output path where the file will be saved.
+        """
+        # out_path = os.path.join(out_path, self.uuid)
+        file_path = os.path.join(out_path, 'gt.txt')
+
+        with open(file_path, "w") as txt_file:
+            for line_name, line_text in gt_dict.items():
+                txt_file.write(f"{line_name}\t{line_text}\n")

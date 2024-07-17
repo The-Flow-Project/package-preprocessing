@@ -81,7 +81,7 @@ class ImageProcessor:
             self.failed_processing.append(in_path)
             raise ImageProcessException('The image cannot be opened and identified for file %s %s', in_path, e)
         except ValueError as e:
-            self.logger.error('Wrong value provided for file %s %s', in_path, str(e))
+            self.logger.error('Wrong value provided for file %s on line %s, %s', in_path, line_number, str(e))
             self.failed_processing.append(in_path)
             raise ImageProcessException('Wrong value provided for file %s %s', in_path, str(e))
         except TypeError as e:
