@@ -22,13 +22,16 @@ class FetchImagesTest(unittest.TestCase):
         self.out_path: str = os.path.join(current_dir, '..', 'tmp_data')
         if not os.path.exists(self.out_path):
             os.makedirs(self.out_path)
-        self.image_downloader = ImageDownloader()
+        self.image_downloader = ImageDownloader(uuid="test1234")
         self.xml_files: List[str] = [os.path.join(in_path, filename) for filename in os.listdir(in_path) if
                                      filename.endswith(".xml")]
         self.dataset_size: int = 1 # len(self.xml_files)
-        self.metadata_transkribus = Metadata("dummy_creator", "https://files.transkribus.eu/Get?id=GMFSOXFVZKPLGWNTXBYUMQOB&amp;fileType=view")
+        self.metadata_transkribus = Metadata("dummy_creator",
+                                             "https://files.transkribus.eu/Get?id=GMFSOXFVZKPLGWNTXBYUMQOB&amp"
+                                             ";fileType=view")
         self.page_transkribus = Page("1155140_0001_47389007.JPG", [], self.metadata_transkribus)
-        self.metadata_escriptorium = Metadata("dummy_creator", "https://escriptorium.flow-project.net/media/documents/37/1_0054.png")
+        self.metadata_escriptorium = Metadata("dummy_creator",
+                                              "https://escriptorium.flow-project.net/media/documents/37/1_0054.png")
         self.page_escriptorium = Page("1_0054.png", [], self.metadata_escriptorium)
 
     def test_fetch_images(self) -> None:

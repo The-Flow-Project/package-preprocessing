@@ -7,7 +7,9 @@ class Logger:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(log_level)
 
-        formatter = log_format or logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        formatter = log_format or logging.Formatter(
+            '%(asctime)s - %(name)s - %(filename)s - %(levelname)s - %(message)s'
+        )
 
         if console:
             console_handler = logging.StreamHandler()

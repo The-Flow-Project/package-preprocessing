@@ -17,9 +17,9 @@ class Coordinate:
     Image coordinate.
     """
 
-# ===============================================================================
-# METHODS
-# ===============================================================================
+    # ===============================================================================
+    # METHODS
+    # ===============================================================================
     def __init__(self, x: float, y: float):
         """
         initialise x and y coordinates.
@@ -52,7 +52,7 @@ class Coordinate:
         return min(coord.x for coord in coordinates)
 
     @staticmethod
-    def max_x(coordinates:  List['Coordinate']) -> float:
+    def max_x(coordinates: List['Coordinate']) -> float:
         """set maximum x coordinate.
 
         :param coordinates: list of coordinates.
@@ -78,6 +78,7 @@ class Line:
     """
     Line from image.
     """
+
     def __init__(self,
                  line_number: str,
                  line_text: str,
@@ -155,6 +156,7 @@ class Metadata:
     """
     The metadata section in the xml files.
     """
+
     def __init__(self, creator, image_url):
         """
         initialise class parameters.
@@ -179,6 +181,7 @@ class Page:
     """
     An XML Page.
     """
+
     def __init__(self, image_file_name, lines, metadata):
         """
         initialise class parameters.
@@ -196,18 +199,15 @@ class Page:
 # CLASS
 # ===============================================================================
 class PageParser:
-
     """
     Download images from Transkribus and eScriptorium via image URL
-
-    :logger: Logger instance
     """
-    logger = Logger(log_file="logs/parse_textlines.log").get_logger()
 
-    def __init__(self, xml_file) -> None:
+    def __init__(self, xml_file, uuid) -> None:
         """
         initialise class parameters.
 
+        :param self.logger: logger instance.
         :param self.tree: parse XML parse tree.
         :param self.root: root of XML parse tree.
         :param self.namespace_uri: namespace URI from the XML root element's tag.
@@ -215,6 +215,7 @@ class PageParser:
         :param self.xmlns: namespace declaration.
         :param self.failed_processing: list of images that could not be processed.
         """
+        self.logger = Logger(log_file=f'logs/{uuid}_parse_textlines.log').get_logger()
         self.tree = et.parse(xml_file)
         self.root = self.tree.getroot()
         self.namespace_uri = self.root.tag.split('}')[0][1:]
@@ -246,8 +247,6 @@ class PageParser:
                             abbreviations)
                 line_list.append(line)
                 line_number += 1
-            self.logger.info("Successfully processed lines in file %s", line_document)
-            return line_list
         except FileNotFoundError as e:
             self.logger.error('XML file not found: %s', line_document, str(e))
             self.failed_processing.append(line_document)
@@ -260,6 +259,9 @@ class PageParser:
             self.logger.error('An unexpected error occurred for file %s: %s', line_document, str(e))
             self.failed_processing.append(line_document)
             raise ParseTextLinesException('An unexpected error occurred for file %s: %s', line_document, e)
+
+        self.logger.info("Successfully processed lines in file %s", line_document)
+        return line_list
 
     def get_metadata(self) -> Metadata:
         """

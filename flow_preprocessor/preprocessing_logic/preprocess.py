@@ -39,8 +39,8 @@ class Preprocessor:
         :param self.uuid: the UUID of the preprocessors process.
         :param self.logger: Logger instance.
         """
-        self.image_processor = ImageProcessor()
-        self.image_downloader = ImageDownloader()
+        self.image_processor = ImageProcessor(uuid)
+        self.image_downloader = ImageDownloader(uuid)
         self.status = Status(os.path.join(directory, uuid))
         self.github_manager = GitHubManager(github_access_token)
         self.uuid = uuid
@@ -112,20 +112,17 @@ class Preprocessor:
         :param abbrev: Whether to expand abbreviations in text.
         :param crop: Whether to crop images.
         """
-        # in_path = os.path.join(self.directory, in_path, self.uuid)
-        # out_path = os.path.join(self.directory, out_path, self.uuid)
 
-        file_counter = 1
         start_time = time.time()
-        for xml_file in page_xml_list:
+        for i, xml_file in enumerate(page_xml_list):
             try:
                 self.preprocess_single_xml_file(crop, abbrev, in_path, out_path, xml_file)
-                self.logger.info(f"Preprocessed {xml_file}.")
-                self.status.update_progress_on_success(file_counter, xml_file, len(page_xml_list))
+                self.logger.info(f"Preprocessor.preprocess_xml_file_list(): Preprocessed {xml_file}.")
+                self.status.update_progress_on_success(i + 1, xml_file, len(page_xml_list))
             except ImageFetchException as e:
                 self.logger.error(f"Error while fetching images: {e}.")
-                self.status.update_list_status("Failed to fetch images:", self.image_downloader.failed_downloads)
-                self.status.update_list_status("Failed to process images:", self.image_downloader.failed_processing)
+                # self.status.update_list_status("Failed to fetch images:", self.image_downloader.failed_downloads)
+                # self.status.update_list_status("Failed to process images:", self.image_downloader.failed_processing)
                 if stop_on_fail:
                     raise e
             except ParseTextLinesException as e:
@@ -136,8 +133,9 @@ class Preprocessor:
                 self.logger.error(f"Error while processing images: {e}.")
                 if stop_on_fail:
                     raise e
-            file_counter += 1
-        self.status.calculate_runtime(start_time)
+            finally:
+                self.status.calculate_runtime(start_time)
+                self._save_failed_files(out_path, to_save='both')
 
     def preprocess_single_xml_file(self,
                                    crop: bool,
@@ -154,9 +152,7 @@ class Preprocessor:
         :param out_path: The output path where processed files will be saved.
         :param xml_file: The XML file to be processed.
         """
-        page_parser = PageParser(xml_file)
-        # in_path = os.path.join(self.directory, in_path, self.uuid)
-        # out_path = os.path.join(self.directory, out_path, self.uuid)
+        page_parser = PageParser(xml_file, self.uuid)
 
         file_name = page_parser.get_image_file_name()
         metadata = page_parser.get_metadata()
@@ -199,7 +195,6 @@ class Preprocessor:
         :param out_path: The output path where the file will be saved.
         :param filename: The name of the file.
         """
-        # out_path = os.path.join(out_path, self.uuid)
         filepath = os.path.join(out_path, filename)
         image.save(filepath)
 
@@ -211,9 +206,27 @@ class Preprocessor:
         :param gt_dict: Dictionary containing line names and texts.
         :param out_path: The output path where the file will be saved.
         """
-        # out_path = os.path.join(out_path, self.uuid)
         file_path = os.path.join(out_path, 'gt.txt')
 
         with open(file_path, "w") as txt_file:
             for line_name, line_text in gt_dict.items():
                 txt_file.write(f"{line_name}\t{line_text}\n")
+
+    def _save_failed_files(self, out_path: str, to_save: str = 'both') -> None:
+        """
+        Save failed files list to a file.
+
+        :param out_path: The output path where the file will be saved.
+        :param to_save: Which failed files list to save. Options: 'image_process', 'image_download', 'both'.
+        """
+
+        if to_save == 'image_process' or to_save == 'both':
+            file_path = os.path.join(out_path, f'{self.uuid}_image_process_failed_files.txt')
+            with open(file_path, "w") as txt_file:
+                for file in self.image_processor.failed_processing:
+                    txt_file.write(f"{file}\n")
+        if to_save == 'image_download' or to_save == 'both':
+            file_path = os.path.join(out_path, f'{self.uuid}_image_download_failed_files.txt')
+            with open(file_path, "w") as txt_file:
+                for file in self.image_downloader.failed_downloads:
+                    txt_file.write(f"{file}\n")

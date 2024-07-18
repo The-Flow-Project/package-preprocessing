@@ -6,14 +6,15 @@ from lxml import etree as et
 
 class ParseTextLinesTest(unittest.TestCase):
 
-    def set_namespace(self, xml_file):
+    @staticmethod
+    def set_namespace(xml_file):
         root = et.parse(xml_file).getroot()
         namespace_uri = root.tag.split('}')[0][1:]
         xmlns = '{' + namespace_uri + '}'
 
         text_line = root.find(f".//{xmlns}TextLine")
 
-        parser = PageParser(xml_file=xml_file)
+        parser = PageParser(xml_file=xml_file, uuid="test_uuid")
 
         return parser, text_line, xmlns
 
@@ -28,10 +29,12 @@ class ParseTextLinesTest(unittest.TestCase):
             xml_file_transkribus)
         self.parser_escriptorium, self.text_line_escriptorium, self.xmlns_escriptorium = self.set_namespace(
             xml_file_escriptorium)
-        self.parser_transkribus_with_abbreviations, self.text_line_transkribus_with_abbreviations, self.xmlns_transkribus_with_abbreviations = self.set_namespace(xml_file_transkribus_with_abbreviations)
+        self.parser_transkribus_with_abbreviations, self.text_line_transkribus_with_abbreviations, self.xmlns_transkribus_with_abbreviations = self.set_namespace(
+            xml_file_transkribus_with_abbreviations)
 
         self.line_transkribus = Line('0',
-                                     "Galfridus Fresel et Johanna vxor eius per attornatos suos petunt uersus Herbertum de Bexvilla terciam partem manerii",
+                                     "Galfridus Fresel et Johanna vxor eius per attornatos suos petunt uersus "
+                                     "Herbertum de Bexvilla terciam partem manerii",
                                      "1155140_0001_47389007.JPG",
                                      [Coordinate(323, 374), Coordinate(359, 373), Coordinate(395, 373),
                                       Coordinate(431, 373), Coordinate(467, 374), Coordinate(503, 375),
@@ -74,19 +77,22 @@ class ParseTextLinesTest(unittest.TestCase):
                                       )
 
         self.line_transkribus_with_abbreviations = Line('0',
-                                     "Int erste quam den Steden en breff van dem hertogē van Sleswik",
-                                     "1520131_0003_58329924.jpg",
-                                     [Coordinate(572, 491), Coordinate(2174, 503), Coordinate(2174, 473), Coordinate(572, 461)],
-                                     [Coordinate(572, 491), Coordinate(2174, 503)],
-                                     [
-                                         {'offset': 49, 'length': 2, 'expansion': 'en'}
-                                     ]
-                                     )
+                                                        "Int erste quam den Steden en breff van dem hertogē van Sleswik",
+                                                        "1520131_0003_58329924.jpg",
+                                                        [Coordinate(572, 491), Coordinate(2174, 503),
+                                                         Coordinate(2174, 473), Coordinate(572, 461)],
+                                                        [Coordinate(572, 491), Coordinate(2174, 503)],
+                                                        [
+                                                            {'offset': 49, 'length': 2, 'expansion': 'en'}
+                                                        ]
+                                                        )
 
         self.metadata_transkribus = Metadata(
-            '''prov=University of Rostock/Institute of Mathematics/CITlab|PLANET AI GmbH/Tobias Gruening/tobias.gruening@planet-ai.de:name=/net_tf/LA73_249_0mod360.pb:de.uros.citlab.segmentation.CITlab_LA_ML:v=2.6.7
-prov=University of Rostock/Institute of Mathematics/CITlab|PLANET AI GmbH/Tobias Gruening/tobias.gruening@planet-ai.de:name=/net_tf/LA73_249_0mod360.pb:de.uros.citlab.segmentation.CITlab_LA_ML:v=2.6.7
-Transkribus''',
+            '''prov=University of Rostock/Institute of Mathematics/CITlab|PLANET AI GmbH/Tobias 
+            Gruening/tobias.gruening@planet-ai.de:name=/net_tf/LA73_249_0mod360.pb:de.uros.citlab.segmentation
+            .CITlab_LA_ML:v=2.6.7 prov=University of Rostock/Institute of Mathematics/CITlab|PLANET AI GmbH/Tobias 
+            Gruening/tobias.gruening@planet-ai.de:name=/net_tf/LA73_249_0mod360.pb:de.uros.citlab.segmentation
+            .CITlab_LA_ML:v=2.6.7 Transkribus''',
             "https://files.transkribus.eu/Get?id=GMFSOXFVZKPLGWNTXBYUMQOB&fileType=view")
 
         self.metadata_escriptorium = Metadata("escriptorium",
@@ -189,7 +195,8 @@ Transkribus''',
         self.assertEqual(expected_output, result)
 
     def test_get_abbreviations(self):
-        result = self.parser_transkribus_with_abbreviations.get_abbreviations(self.text_line_transkribus_with_abbreviations)
+        result = self.parser_transkribus_with_abbreviations.get_abbreviations(
+            self.text_line_transkribus_with_abbreviations)
         expected_output = self.line_transkribus.abbreviations
         self.assertEqual(expected_output, result)
 

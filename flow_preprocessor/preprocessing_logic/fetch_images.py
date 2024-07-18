@@ -17,26 +17,27 @@ from flow_preprocessor.utils.logging.logger import Logger
 class ImageDownloader:
     """
     Download images from Transkribus and eScriptorium via image URL.
-
-    :logger: Logger instance
     """
-    logger = Logger(log_file="logs/fetch_images.log").get_logger()
 
 # ===============================================================================
 # METHODS
 # ===============================================================================
-    def __init__(self) -> None:
+    def __init__(self, uuid: str) -> None:
         """
         Initialise the lists of failed downloads, failed image processings and successful image processings.
 
+        :arg uuid: the unique identifier of the process.
         :param self.failed_downloads: List of failed downloads.
         :param self.successful_downloads: List of successful downloads.
         :param self.failed_image_processings: List of failed image processings.
-
+        :param self.logger: Logger instance.
         """
         self.failed_downloads: List[str] = []
         self.failed_processing: List[str] = []
         self.successes: List[str] = []
+        self.uuid = uuid
+
+        self.logger = Logger(log_file=f'logs/{uuid}_fetch_images.log').get_logger()
 
     def _request_image_via_url(self, url: str, filename: str) -> None:
         """

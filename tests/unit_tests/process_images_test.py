@@ -17,7 +17,7 @@ class ProcessImagesTest(unittest.TestCase):
             os.makedirs(self.out_path)
         self.image_transkribus: str = os.path.join(self.in_path, "1155140_0001_47389007.JPG")
         self.image_escriptorium: str = os.path.join(self.in_path, "1_0054.png")
-        self.imageProcessor = ImageProcessor()
+        self.imageProcessor = ImageProcessor(uuid="test1234")
         self.line_escriptorium = Line('0',
                                       "Peter Angerfelder und Richter und auch",
                                       "1_0054.png",
@@ -34,7 +34,8 @@ class ProcessImagesTest(unittest.TestCase):
                                       )
 
         self.line_transkribus = Line('0',
-                                     "Galfridus Fresel et Johanna vxor eius per attornatos suos petunt uersus Herbertum de Bexvilla terciam partem manerii",
+                                     "Galfridus Fresel et Johanna vxor eius per attornatos suos petunt uersus "
+                                     "Herbertum de Bexvilla terciam partem manerii",
                                      "1155140_0001_47389007.JPG",
                                      [Coordinate(323, 374), Coordinate(359, 373), Coordinate(395, 373),
                                       Coordinate(431, 373), Coordinate(467, 374), Coordinate(503, 375),

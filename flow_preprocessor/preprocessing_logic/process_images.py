@@ -15,21 +15,21 @@ from flow_preprocessor.utils.logging.logger import Logger
 # CLASS
 # ===============================================================================
 class ImageProcessor:
-
     """
     Process images from Transkribus and eScriptorium to extract text lines.
-
-    :logger: Logger instance
     """
-    logger = Logger(log_file="logs/process_images.log").get_logger()
 
-    def __init__(self) -> None:
+    def __init__(self, uuid: str) -> None:
         """
         Initialize class parameters.
 
         :param: self.failed_processing: images which could not be processed.
+        :param: self.uuid: the unique identifier of the process.
+        :param: self.logger: the logger instance.
         """
         self.failed_processing: List[str] = []
+        self.uuid = uuid
+        self.logger = Logger(log_file=f'logs/{uuid}_process_images.log').get_logger()
 
     @staticmethod
     def _load_image(image_path: str) -> Image:
@@ -122,7 +122,7 @@ class ImageProcessor:
             cropped_image = Image.new("RGBA", cutout.size, (255, 255, 255, 255))
             cropped_image.paste(cutout, (0, 0), mask=cutout)
             cropped_image = cropped_image.convert('RGB')
-            self.logger.info("Successfully extracted line %s for image %s",  line_number, image_path)
+            self.logger.info("Successfully extracted line %s for image %s", line_number, image_path)
             return cropped_image
         except FileNotFoundError as e:
             self.logger.error('File not found: %s: %s', image_path, str(e))
