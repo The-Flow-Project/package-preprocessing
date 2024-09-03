@@ -1,94 +1,87 @@
 # ===============================================================================
 # IMPORT STATEMENTS
 # ===============================================================================
-import json
-import os
-import time
-from typing import Dict, Any, List
+from datetime import datetime
+from typing import List
+from flow_preprocessor.preprocessing_logic.models import PreprocessState
+from flow_preprocessor.exceptions.exceptions import ImageFetchException
 
 
 # ===============================================================================
 # CLASS
 # ===============================================================================
 class Status:
-    def __init__(self, output_dir: str) -> None:
+    def __init__(self, state: PreprocessState) -> None:
         """
         initialise class parameters.
 
-        :param output_dir: the directory the status file is saved to.
+        :param state: the state of the preprocess status.
         """
-        timestamp = self.get_current_timestamp()
-        file_name = "preprocessor_status_" + timestamp + ".json"
-        self.file_path = os.path.join(output_dir, file_name)
+        self.state = state
 
-    def write_status(self, data: Dict[str, Any]) -> None:
+    def initialize_status(self, files_fetched: List, files_download_failed: List) -> PreprocessState:
         """
-        Write status to status file in dict.
+        Initialize status.
 
-        :param data: the data to be written to the status file in a dict.
+        :param files_fetched: the list of files fetched.
+        :param files_download_failed: the list of files that failed to download.
+        :return: the status of the preprocess.
         """
-        with open(self.file_path, 'a') as status_file:
-            json.dump(data, status_file)
-            status_file.write('\n')
+        self.state.files_total = len(files_fetched)
+        self.state.files_failed_download = len(files_download_failed)
+        self.state.filenames_failed_download = ", ".join(files_download_failed)
+        self.state.state = "in_progress"
+        self.state.runtime = self.calculate_runtime()
+
+        return PreprocessState(**self.state.dict())
 
     @staticmethod
-    def get_current_timestamp(timestamp_format: str = "%Y-%m-%dT%H:%M:%S") -> str:
-        """
-        Get current timestamp.
+    def format_timedelta_as_hms(td):
+        total_seconds = int(td.total_seconds())
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{hours:02}:{minutes:02}:{seconds:02}"
 
-        :param timestamp_format: formatted string.
-        :return: current timestamp.
-        """
-        return time.strftime(timestamp_format)
-
-    def calculate_runtime(self, start_time: float) -> float:
+    def calculate_runtime(self) -> str:
         """
         Calculate runtime.
 
-        :param: start time as float.
         :return: runtime as float.
         """
-        current_time: float = time.time()
-        runtime: float = round(current_time - start_time, 2)
-        self._update_status({"runtime": runtime})
-        return runtime
+        delta = datetime.now() - self.state.created_at
+        return self.format_timedelta_as_hms(delta)
 
-    def _update_status(self, data: Dict[str, Any]) -> None:
-        """
-        Update status in status file.
-
-        :param data: the data to be written to the status file in a dict.
-        """
-        timestamp: str = self.get_current_timestamp()
-        data["timestamp"] = timestamp
-        self.write_status(data)
-
-    def update_progress_on_success(self,
-                                   current_item_index: int,
-                                   current_item_name: str,
-                                   total_item_number: int) -> None:
+    def update_progress(self,
+                        current_item_index: int = None,
+                        current_item_name: str = None,
+                        success: bool = True,
+                        exception: Exception = None,
+                        state_str: str = None) -> PreprocessState:
         """
         update progress when job is finished.
 
         :param current_item_index: the index of the item currently being processed.
         :param current_item_name: the name of the item currently being processed.
-        :param total_item_number: the total number of items being processed.
+        :param success: whether the item was processed successfully.
+        :param exception: the exception that was raised if success is False.
+        :param state_str: the state of the preprocess.
         """
-        formatted_data = {
-            "progress": f"{current_item_index}/{total_item_number}",
-            "last_item": current_item_name
-        }
-        self._update_status(formatted_data)
+        if current_item_index is not None and current_item_name is not None:
+            self.state.progress = int((current_item_index / self.state.files_total) * 100)
 
-    def update_list_status(self, list_name: str, list_data: List[Any]) -> None:
-        """
-        Update the status of lists of processed files.
+            if success:
+                self.state.files_successful += 1
+                self.state.filenames_successful += f", {current_item_name}"
+            else:
+                self.state.files_failed_process += 1
+                self.state.filenames_failed_process += f", {current_item_name}"
+                if exception is ImageFetchException:
+                    self.state.files_failed_download += 1
+                    self.state.filenames_failed_download += f", {current_item_name}"
 
-        :param list_name: the name of the list to be processed.
-        :param list_data: the data to be processed.
-        """
-        formatted_data: Dict[str, Any] = {
-            "list_name": list_name,
-            "list_data": list_data
-        }
-        self._update_status(formatted_data)
+            if state_str is not None:
+                self.state.state = state_str
+
+        self.state.runtime = self.calculate_runtime()
+
+        return PreprocessState(**self.state.dict())

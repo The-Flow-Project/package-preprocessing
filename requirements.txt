@@ -2,3 +2,4 @@ pillow
 lxml
 requests
 flow_githubmanager
+pydantic
