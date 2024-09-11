@@ -22,11 +22,11 @@ class ImageDownloader:
 # ===============================================================================
 # METHODS
 # ===============================================================================
-    def __init__(self, uuid: str) -> None:
+    def __init__(self, uniqueid: str) -> None:
         """
         Initialise the lists of failed downloads, failed image processings and successful image processings.
 
-        :arg uuid: the unique identifier of the process.
+        :arg uniqueid: the unique identifier of the process.
         :param self.failed_downloads: List of failed downloads.
         :param self.successful_downloads: List of successful downloads.
         :param self.failed_image_processings: List of failed image processings.
@@ -35,9 +35,8 @@ class ImageDownloader:
         self.failed_downloads: List[str] = []
         self.failed_processing: List[str] = []
         self.successes: List[str] = []
-        self.uuid = uuid
 
-        self.logger = Logger(log_file=f'logs/{uuid}_fetch_images.log').get_logger()
+        self.logger = Logger(log_file=f'logs/{uniqueid}_fetch_images.log').get_logger()
 
     def _request_image_via_url(self, url: str, filename: str) -> None:
         """
@@ -50,7 +49,7 @@ class ImageDownloader:
         response.raise_for_status()
         with open(filename, 'wb') as file:
             file.write(response.content)
-        self.logger.info('File downloaded: %s', filename)
+        self.logger.info(f'{self.__class__.__name__} - File downloaded: {filename}')
 
     def fetch_image(self, page: Page, img_output: str) -> None:
         """
@@ -71,18 +70,30 @@ class ImageDownloader:
 
         except requests.exceptions.RequestException as e:
             self.failed_downloads.append(image_filename)
-            self.logger.error('Failed to download file %s: %s', image_filename, str(e))
+            self.logger.error(
+                f'{self.__class__.__name__} - Failed to download file {image_filename}',
+                exc_info=True
+            )
             raise ImageFetchException('Failed to download file %s.', e)
         except FileNotFoundError as e:
-            self.logger.error('XML file not found: %s', page, str(e))
+            self.logger.error(
+                f'{self.__class__.__name__} - XML file not found: {page}',
+                exc_info=True
+            )
             raise ImageFetchException('XML file not found: %s', e)
         except (et.XMLSyntaxError, et.ParseError, IndexError, TypeError, ValueError) as e:
-            self.logger.error('Error parsing file %s: %s', page, str(e))
+            self.logger.error(
+                f'{self.__class__.__name__} - Error parsing file {page}',
+                exc_info=True
+            )
             if image_filename is not None:
                 self.failed_processing.append(image_filename)
             raise ImageFetchException('Error parsing file %s: %s', e)
         except Exception as e:
-            self.logger.error('An unexpected error occurred for file %s: %s', page, str(e))
+            self.logger.error(
+                f'{self.__class__.__name__} - An unexpected error occurred for file {page}',
+                exc_info=True
+            )
             if image_filename is not None:
                 self.failed_processing.append(image_filename)
             raise ImageFetchException('An unexpected error occurred for file %s: %s', e)

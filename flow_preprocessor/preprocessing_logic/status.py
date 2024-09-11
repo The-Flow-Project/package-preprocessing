@@ -3,7 +3,7 @@
 # ===============================================================================
 from datetime import datetime
 from typing import List
-from flow_preprocessor.preprocessing_logic.models import PreprocessState
+from flow_preprocessor.preprocessing_logic.models import PreprocessState, StateEnum
 from flow_preprocessor.exceptions.exceptions import ImageFetchException
 
 
@@ -29,34 +29,27 @@ class Status:
         """
         self.state.files_total = len(files_fetched)
         self.state.files_failed_download = len(files_download_failed)
-        self.state.filenames_failed_download = ", ".join(files_download_failed)
-        self.state.state = "in_progress"
-        self.state.runtime = self.calculate_runtime()
+        self.state.filenames_failed_download = files_download_failed
+        self.state.state = StateEnum.IN_PROGRESS
+        self.state.runtime = 0
+        return PreprocessState(**self.state.model_dump(by_alias=True))
 
-        return PreprocessState(**self.state.dict())
 
-    @staticmethod
-    def format_timedelta_as_hms(td):
-        total_seconds = int(td.total_seconds())
-        hours, remainder = divmod(total_seconds, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        return f"{hours:02}:{minutes:02}:{seconds:02}"
-
-    def calculate_runtime(self) -> str:
+    def calculate_runtime(self) -> int:
         """
         Calculate runtime.
 
-        :return: runtime as float.
+        :return: runtime in seconds as int.
         """
         delta = datetime.now() - self.state.created_at
-        return self.format_timedelta_as_hms(delta)
+        return int(delta.total_seconds())
 
     def update_progress(self,
                         current_item_index: int = None,
                         current_item_name: str = None,
                         success: bool = True,
                         exception: Exception = None,
-                        state_str: str = None) -> PreprocessState:
+                        state_enum: StateEnum = None) -> PreprocessState:
         """
         update progress when job is finished.
 
@@ -64,24 +57,24 @@ class Status:
         :param current_item_name: the name of the item currently being processed.
         :param success: whether the item was processed successfully.
         :param exception: the exception that was raised if success is False.
-        :param state_str: the state of the preprocess.
+        :param state_enum: the state of the preprocess.
         """
         if current_item_index is not None and current_item_name is not None:
             self.state.progress = int((current_item_index / self.state.files_total) * 100)
 
             if success:
                 self.state.files_successful += 1
-                self.state.filenames_successful += f", {current_item_name}"
+                self.state.filenames_successful.append(current_item_name)
             else:
                 self.state.files_failed_process += 1
-                self.state.filenames_failed_process += f", {current_item_name}"
+                self.state.filenames_failed_process.append(current_item_name)
                 if exception is ImageFetchException:
                     self.state.files_failed_download += 1
-                    self.state.filenames_failed_download += f", {current_item_name}"
+                    self.state.filenames_failed_download.append(current_item_name)
 
-            if state_str is not None:
-                self.state.state = state_str
+            if state_enum is not None:
+                self.state.state = state_enum
 
         self.state.runtime = self.calculate_runtime()
 
-        return PreprocessState(**self.state.dict())
+        return PreprocessState(**self.state.model_dump(by_alias=True))

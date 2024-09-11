@@ -203,7 +203,7 @@ class PageParser:
     Download images from Transkribus and eScriptorium via image URL
     """
 
-    def __init__(self, xml_file, uuid) -> None:
+    def __init__(self, xml_file, process_id) -> None:
         """
         initialise class parameters.
 
@@ -215,7 +215,7 @@ class PageParser:
         :param self.xmlns: namespace declaration.
         :param self.failed_processing: list of images that could not be processed.
         """
-        self.logger = Logger(log_file=f'logs/{uuid}_parse_textlines.log').get_logger()
+        self.logger = Logger(log_file=f'logs/{process_id}_parse_textlines.log').get_logger()
         self.tree = et.parse(xml_file)
         self.root = self.tree.getroot()
         self.namespace_uri = self.root.tag.split('}')[0][1:]
@@ -248,19 +248,28 @@ class PageParser:
                 line_list.append(line)
                 line_number += 1
         except FileNotFoundError as e:
-            self.logger.error('XML file not found: %s', line_document, str(e))
+            self.logger.error(
+                f'{self.__class__.__name__} - XML file not found: {line_document}',
+                exc_info=True,
+            )
             self.failed_processing.append(line_document)
             raise ParseTextLinesException('XML file not found:  %s', line_document, e)
         except (et.XMLSyntaxError, et.ParseError, IndexError, TypeError, ValueError) as e:
-            self.logger.error('Error parsing file %s: %s', line_document, str(e))
+            self.logger.error(
+                f'{self.__class__.__name__} - Error parsing file {line_document}',
+                exc_info=True,
+            )
             self.failed_processing.append(line_document)
             raise ParseTextLinesException('Error parsing file %s: %s', line_document, e)
         except Exception as e:
-            self.logger.error('An unexpected error occurred for file %s: %s', line_document, str(e))
+            self.logger.error(
+                f'{self.__class__.__name__} - An unexpected error occurred for file {line_document}',
+                exc_info=True,
+            )
             self.failed_processing.append(line_document)
             raise ParseTextLinesException('An unexpected error occurred for file %s: %s', line_document, e)
 
-        self.logger.info("Successfully processed lines in file %s", line_document)
+        self.logger.info(f'{self.__class__.__name__} - Successfully processed lines in file {line_document}')
         return line_list
 
     def get_metadata(self) -> Metadata:
@@ -317,7 +326,7 @@ class PageParser:
 
         :param text_line: A text line from the XML file.
         :param xmlns: The XML namespace.
-        :return: The text in unicode.
+        :return: The text in Unicode.
         """
         unicode_text: str = text_line.find(f"./{xmlns}TextEquiv/{xmlns}Unicode").text.strip()
         return unicode_text

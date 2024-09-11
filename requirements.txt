@@ -1,5 +1,7 @@
-pillow
-lxml
-requests
+pillow~=10.3.0
+lxml~=5.2.2
+requests~=2.32.3
 flow_githubmanager
-pydantic
+pydantic~=2.8.2
+setuptools~=70.2.0
+dependency-injector~=4.39.1
