@@ -152,7 +152,7 @@ class Preprocessor:
             try:
                 self.preprocess_single_xml_file(crop, abbrev, in_path, out_path, xml_file)
                 self.logger.info(f"Preprocessor.preprocess_xml_file_list(): Preprocessed {xml_file}.")
-                self.progressStatus = self.statusManager.update_progress(
+                self.progressStatus = await self.statusManager.update_progress(
                     current_item_index=i + 1,
                     current_item_name=xml_file,
                     success=True
@@ -165,7 +165,7 @@ class Preprocessor:
                                   exc_info=True)
                 if stop_on_fail:
                     self.statusManager.state.state = StateEnum.FAILED
-                    self.progressStatus = self.statusManager.update_progress(
+                    self.progressStatus = await self.statusManager.update_progress(
                         i + 1,
                         xml_file,
                         success=False,
@@ -175,7 +175,7 @@ class Preprocessor:
                     self.logger.error(f"Preprocessor.preprocess_xml_file_list(): Stopping processing due to failure.")
                     raise e
                 else:
-                    self.progressStatus = self.statusManager.update_progress(
+                    self.progressStatus = await self.statusManager.update_progress(
                         i + 1,
                         xml_file,
                         success=False,
@@ -187,12 +187,13 @@ class Preprocessor:
                 self.logger.info(
                     f"Preprocessor.preprocess_xml_file_list(): Preprocessing {xml_file} done. Runtime (sec): {self.progressStatus.runtime}")
 
-        if self.progressStatus.state == StateEnum.IN_PROGRESS:
-            self.progressStatus = self.statusManager.update_progress(state_enum=StateEnum.DONE)
-            self.logger.info(
-                f"Preprocessor.preprocess_xml_file_list(): Preprocessing done. Runtime (sec): {self.progressStatus.runtime}")
-            if self.callback:
-                await self.callback(self.progressStatus.model_dump(by_alias=True))
+        self.progressStatus = await self.statusManager.update_progress(state_enum=StateEnum.DONE)
+        self.logger.info(
+            f"Preprocessor.preprocess_xml_file_list(): Preprocessing done. ProgressStatus: {self.progressStatus}"
+        )
+        self.progressStatus.state = StateEnum.DONE
+        if self.callback:
+            await self.callback(self.progressStatus.model_dump(by_alias=True))
 
     def preprocess_single_xml_file(self,
                                    crop: bool,

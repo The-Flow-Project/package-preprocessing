@@ -44,7 +44,7 @@ class Status:
         delta = datetime.now() - self.state.created_at
         return int(delta.total_seconds())
 
-    def update_progress(self,
+    async def update_progress(self,
                         current_item_index: int = None,
                         current_item_name: str = None,
                         success: bool = True,
