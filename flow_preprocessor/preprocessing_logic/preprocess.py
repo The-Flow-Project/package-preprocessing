@@ -170,7 +170,7 @@ class Preprocessor:
                         xml_file,
                         success=False,
                         exception=e,
-                        state_str=StateEnum.FAILED
+                        state_enum=StateEnum.FAILED
                     )
                     self.logger.error(f"Preprocessor.preprocess_xml_file_list(): Stopping processing due to failure.")
                     raise e
