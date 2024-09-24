@@ -183,9 +183,10 @@ class Preprocessor:
                     self.logger.error(f"Preprocessor.preprocess_xml_file_list(): Continuing processing after failure.")
             finally:
                 self.statusManager.calculate_runtime()
-                self._save_failed_files(out_path, to_save='both')
+                self._save_failed_files(out_path)
                 self.logger.info(
-                    f"Preprocessor.preprocess_xml_file_list(): Preprocessing {xml_file} done. Runtime (sec): {self.progressStatus.runtime}")
+                    f"Preprocessor.preprocess_xml_file_list(): Preprocessing {xml_file} done. "
+                    f"Runtime (sec): {self.progressStatus.runtime}")
 
         self.progressStatus = await self.statusManager.update_progress(state_enum=StateEnum.DONE)
         self.logger.info(

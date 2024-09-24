@@ -3,6 +3,7 @@
 # ===============================================================================
 import re
 from typing import List, Dict, Optional, Union
+
 from lxml import etree as et
 
 from flow_preprocessor.exceptions.exceptions import ParseTextLinesException
@@ -116,7 +117,12 @@ class Line:
 
     def get_output_filename(self) -> str:
         """construct image file name."""
-        out_image_name = re.sub(r"\.([^.]*?)$", r".{0}.\1".format(self.line_number), self.line_document)
+        out_image_name = re.sub(
+            r"(\.[a-zA-Z]+)$",
+            f".{self.line_number}\\1",
+            self.line_document
+        )
+
         return out_image_name
 
     def get_line_text(self, abbrev=False):
@@ -220,7 +226,7 @@ class PageParser:
         self.root = self.tree.getroot()
         self.namespace_uri = self.root.tag.split('}')[0][1:]
         self.namespace = {'prefix': self.namespace_uri}
-        self.xmlns = '{' + self.namespace_uri + '}'
+        self.xmlns = {'ns': self.namespace_uri}
         self.failed_processing = []
 
     def process_lines_from_xml_file(self) -> List[Line]:
@@ -234,11 +240,17 @@ class PageParser:
             line_document = self.get_image_file_name()
             line_list: List[Line] = []
             line_number = 0
-            for text_line in self.root.iterfind(f".//{self.xmlns}TextLine"):
-                line_text = self.get_line_text_string(text_line, self.xmlns)
-                line_coordinates = self.get_coordinates(text_line, self.xmlns)
-                line_baseline_points = self.get_baseline(text_line, self.xmlns)
+            for text_line in self.root.findall(".//ns:TextLine", namespaces=self.xmlns):
+                line_text = self.get_line_text_string(text_line)
+                line_coordinates = self.get_coordinates(text_line)
+                line_baseline_points = self.get_baseline(text_line)
                 abbreviations = self.get_abbreviations(text_line)
+                if line_text == '' or line_coordinates == [] or line_baseline_points == []:
+                    self.logger.warning(
+                        f'{self.__class__.__name__} - Skipping line {line_number} in file {line_document} as it is '
+                        f'empty or has no coordinates or baseline points.'
+                    )
+                    continue
                 line = Line(str(line_number),
                             line_text,
                             line_document,
@@ -260,7 +272,7 @@ class PageParser:
                 exc_info=True,
             )
             self.failed_processing.append(line_document)
-            raise ParseTextLinesException('Error parsing file %s: %s', line_document, e)
+            raise ParseTextLinesException(f'Error parsing file {line_document}: {e}')
         except Exception as e:
             self.logger.error(
                 f'{self.__class__.__name__} - An unexpected error occurred for file {line_document}',
@@ -289,7 +301,7 @@ class PageParser:
 
         :return: filename of the image as string.
         """
-        return self.root.find(f".//{self.xmlns}Page").get('imageFilename')
+        return self.root.find(".//ns:Page", namespaces=self.xmlns).attrib.get('imageFilename')
 
     def get_creator(self) -> str:
         """
@@ -297,8 +309,9 @@ class PageParser:
 
         :return: creator tag as string.
         """
-        creator = self.root.find(".//prefix:Metadata/prefix:Creator", namespaces=self.namespace)
+        creator = self.root.find(".//ns:Metadata/ns:Creator", namespaces=self.xmlns)
         creator_text: Optional[str] = creator.text
+        self.logger.info(f'{self.__class__.__name__} - Got creator: {creator_text}')
         return creator_text
 
     def get_image_url(self) -> str:
@@ -308,57 +321,66 @@ class PageParser:
         return: URL tag as string.
         """
         creator = self.get_creator()
-        if creator is not None and creator == "escriptorium" and self.xmlns == ("{http://schema.primaresearch.org/PAGE"
-                                                                                "/gts/pagecontent/2019-07-15}"):
-            image_url: str = self.root.find(f".//{self.xmlns}Page").get('imageURL')
+        # self.logger.info(f'{self.__class__.__name__} - Got xmlns: {self.xmlns}')
+        if (
+                creator is not None
+                and creator == "escriptorium"
+                and self.namespace_uri == "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15"
+        ):
+            image_url: str = self.root.find("ns:Page", namespaces=self.xmlns).get('imageURL')
         else:
             transkribus_metadata = self.root.xpath(
-                "//prefix:Metadata/prefix:TranskribusMetadata",
-                namespaces=self.namespace
-            )[0]
+                "ns:Metadata/ns:TranskribusMetadata",
+                namespaces=self.xmlns
+            )
             image_url = transkribus_metadata.get('imgUrl')
+        self.logger.info(f'{self.__class__.__name__} - Got image URL: {image_url}')
         return image_url
 
-    @staticmethod
-    def get_line_text_string(text_line: et.Element, xmlns: str) -> str:
+    def get_line_text_string(self, text_line: et.Element) -> str:
         """
         Get line text from XML file.
 
         :param text_line: A text line from the XML file.
-        :param xmlns: The XML namespace.
         :return: The text in Unicode.
         """
-        unicode_text: str = text_line.find(f"./{xmlns}TextEquiv/{xmlns}Unicode").text.strip()
-        return unicode_text
+        if text_line is None:
+            raise ValueError("text_line is None")
 
-    @staticmethod
-    def get_coordinates(text_line: et.Element, xmlns: str) -> List[Coordinate]:
+        unicode_text = text_line.find('.//ns:Unicode', namespaces=self.xmlns)
+        self.logger.info(f'{self.__class__.__name__} - Got Unicode text: {unicode_text.text}')
+        if unicode_text is not None and unicode_text.text is not None:
+            text: str = unicode_text.text.strip()
+        else:
+            text: str = ''
+        return text
+
+    def get_coordinates(self, text_line: et.Element) -> List[Coordinate]:
         """
         Get coordinates from the XML file.
 
         :param text_line: A text line from the XML file.
-        :param xmlns: The XML namespace.
         :return: List of coordinates.
         """
-        coord = text_line.find(f"./{xmlns}Coords")
-        points: str = coord.get("points")
+        coord = text_line.find(".//ns:Coords", namespaces=self.xmlns)
+        points: str = coord.attrib.get("points")
+
+        # self.logger.info(f'{self.__class__.__name__} - Got coordinates: {points}')
         points_list: List[str] = points.split()
         coordinates: List[Coordinate] = [Coordinate(int(p.split(",")[0]), int(p.split(",")[1])) for p in points_list]
         return coordinates
 
-    @staticmethod
-    def get_baseline(text_line: et.Element, xmlns: str) -> List[Coordinate]:
+    def get_baseline(self, text_line: et.Element) -> List[Coordinate]:
         """
         Get a list of baseline coordinates.
 
         :param text_line: a text line from an XML file.
-        :param xmlns: the XML namespace.
         :return: a list of baseline coordinates.
         """
         baseline_points: List[Coordinate] = []
-        baseline = text_line.find(f"./{xmlns}Baseline")
+        baseline = text_line.find(".//ns:Baseline", namespaces=self.xmlns)
         if baseline is not None:
-            points: str = baseline.get("points")
+            points: str = baseline.attrib.get("points")
             points_list: List[str] = points.split()
             baseline_points = [Coordinate(int(p.split(",")[0]), int(p.split(",")[1])) for p in points_list]
         return baseline_points
@@ -376,7 +398,7 @@ class PageParser:
         if custom_attr is not None:
             split_string: List[str] = custom_attr.split('}')
             for abbreviation_str in split_string:
-                if re.search('(abbrev).*(expansion)', abbreviation_str):
+                if re.search("abbrev.*expansion", abbreviation_str):
                     abbreviation: Dict[str, Union[str, int]] = {}
                     parts: List[str] = (abbreviation_str
                                         .strip()
