@@ -5,6 +5,7 @@ import re
 from typing import List, Dict, Optional, Union
 
 from lxml import etree as et
+from transformers.models.siglip.modeling_siglip import trunc_normal_tf_
 
 from flow_preprocessor.exceptions.exceptions import ParseTextLinesException
 from flow_preprocessor.utils.logging.logger import Logger
@@ -333,6 +334,8 @@ class PageParser:
                 "ns:Metadata/ns:TranskribusMetadata",
                 namespaces=self.xmlns
             )
+            if type(transkribus_metadata) is list:
+                transkribus_metadata = transkribus_metadata[0]
             image_url = transkribus_metadata.get('imgUrl')
         self.logger.info(f'{self.__class__.__name__} - Got image URL: {image_url}')
         return image_url
