@@ -31,16 +31,35 @@ class ImageProcessor:
         self.logger = Logger(log_file=f'logs/{process_id}_process_images.log').get_logger()
 
     @staticmethod
-    def _load_image(image_path: str) -> Image:
+    def _correct_orientation(image):
+        try:
+            exif = image.getexif()
+
+            if exif:
+                # key 274 = orientation, returns 1 if not existing
+                orientation = exif.get(274, 1)
+
+                if orientation == 3:
+                    image = image.rotate(180, expand=True)
+                elif orientation == 6:
+                    image = image.rotate(270, expand=True)
+                elif orientation == 8:
+                    image = image.rotate(90, expand=True)
+            return image
+        except (AttributeError, KeyError, IndexError):
+            return image
+
+    def _load_image(self, image_path: str) -> Image:
         """
         Load image.
 
         :param: the path of the image to be loaded.
         :return: the loaded image as a PILImage.
         """
-        with Image.open(image_path) as image:
-            image.load()
-            return image
+        image = Image.open(image_path)
+        image = self._correct_orientation(image)
+
+        return image
 
     def extract_line_from_image(self,
                                 baseline_points: List[Coordinate],
