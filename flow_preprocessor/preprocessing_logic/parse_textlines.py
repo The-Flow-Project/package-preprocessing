@@ -5,7 +5,6 @@ import re
 from typing import List, Dict, Optional, Union
 
 from lxml import etree as et
-from transformers.models.siglip.modeling_siglip import trunc_normal_tf_
 
 from flow_preprocessor.exceptions.exceptions import ParseTextLinesException
 from flow_preprocessor.utils.logging.logger import Logger
