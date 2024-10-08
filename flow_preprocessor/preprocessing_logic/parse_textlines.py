@@ -413,7 +413,8 @@ class PageParser:
                         if p[0] == 'expansion':
                             abbreviation[p[0]] = p[1]
                         else:
-                            abbreviation[p[0]] = int(p[1])
+                            if p[1].isdigit():
+                                abbreviation[p[0]] = int(p[1])
                     if 'expansion' in abbreviation.keys():
                         abbreviations.append(abbreviation)
         return abbreviations
