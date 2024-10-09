@@ -5,13 +5,13 @@ with open("requirements.txt") as f:
 
 setup(
     name="flow_preprocessor",
-    version="0.1.1",
+    version="0.3",
     packages=find_packages(),
     install_requires=requirements,
     include_package_data=True,
     description="A package to preprocess PageXMl files for a TrOCR training.",
-    author="Dana Meyer",
-    author_email="dameyer@techfak.uni-bielefeld.de",
+    author="Dana Meyer and Jonas Widmer",
+    author_email="dameyer@techfak.uni-bielefeld.de, jonas.widmer@unibe.ch",
     url="https://github.com/The-Flow-Project/package-preprocessing",
     classifiers=[
         "Programming Language :: Python :: 3",

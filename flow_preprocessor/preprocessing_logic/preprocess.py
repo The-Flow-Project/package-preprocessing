@@ -2,78 +2,107 @@
 # IMPORT STATEMENTS
 # ===============================================================================
 import os
-import time
-from glob import glob
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 
 from PIL.Image import Image
+from dependency_injector.providers import Coroutine
 
 from flow_githubmanager.github_interaction import GitHubManager
+
 from flow_preprocessor.preprocessing_logic.fetch_images import ImageDownloader
 from flow_preprocessor.preprocessing_logic.parse_textlines import PageParser, Page
 from flow_preprocessor.preprocessing_logic.process_images import ImageProcessor
 from flow_preprocessor.preprocessing_logic.status import Status
-from flow_preprocessor.utils.logging.logger import Logger
+from flow_preprocessor.preprocessing_logic.models import PreprocessState, StateEnum
 from flow_preprocessor.exceptions.exceptions import ImageProcessException, ImageFetchException, ParseTextLinesException
+from flow_preprocessor.utils.logging.logger import Logger
 
 
 # ===============================================================================
 # CLASS
 # ===============================================================================
 
-
-# TODO: Why is everything logged multiple times?
 class Preprocessor:
     """
     Perform preprocessing steps.
     """
 
-    def __init__(self, uuid: str, directory: str = "tmp", github_access_token: Optional[str] = None) -> None:
+    def __init__(self) -> None:
         """
         initialize parameters.
 
         :param self.image_processor: ImageProcessor instance.
         :param self.image_downloader: ImageDownloader instance.
-        :param self.status: Status instance.
         :param self.github_manager: GitHubManager instance.
-        :param self.uuid: the UUID of the preprocessors process.
-        :param self.logger: Logger instance.
+        :param self.process_id: the ID of the preprocessors process.
         """
-        self.image_processor = ImageProcessor(uuid)
-        self.image_downloader = ImageDownloader(uuid)
-        self.status = Status(os.path.join(directory, uuid))
-        self.github_manager = GitHubManager(github_access_token)
-        self.uuid = uuid
-        self.logger = Logger(log_file=f"logs/{uuid}_preprocess.log").get_logger()
 
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+        self.image_processor = None
+        self.image_downloader = None
+        self.github_manager = None
+        self.progressStatus = None
+        self.statusManager = None
+        self.process_id = None
+        self.callback = None
 
-        self.directory = directory
+        self.logger = None
 
-    def preprocess(self,
-                   repo_name: str,
-                   repo_folder: str,
-                   in_path: str = "",
-                   out_path: str = "preprocessed",
-                   crop: bool = False,
-                   abbrev: bool = False,
-                   stop_on_fail: bool = True) -> None:
+    async def preprocess(self,
+                         process_id: str,
+                         repo_name: str,
+                         repo_folder: str,
+                         github_access_token: Optional[str] = None,
+                         crop: bool = False,
+                         abbrev: bool = False,
+                         stop_on_fail: bool = True,
+                         directory: str = "tmp",
+                         in_path: str = "",
+                         out_path: str = "preprocessed",
+                         callback_preprocess: Coroutine[Any, Any, None] = None,
+                         **kwargs,
+                         ) -> None:
         """
         Perform preprocessing steps: fetch XML files from GitHub, preprocess and push to GitHub.
 
+        :param process_id: the uniqueid of the preprocessors process.
         :param repo_name: the name of the repository the results are fetched from and pushed to.
         :param repo_folder: the folder in the repository the files are fetched from.
+        :param github_access_token: the GitHub access token.
+        :param directory: the directory where the files are saved locally.
         :param in_path: the path the XML files are saved to - UUID will be a subfolder.
         :param out_path: the path the preprocessed data is saved to - UUID will be a subfolder.
         :param crop: whether to crop images.
         :param abbrev: whether to expand abbreviations in text.
         :param stop_on_fail: whether to stop processing on failure.
+        :param callback_preprocess: a callback function to be called after each step.
         """
+        self.logger = Logger(log_file=f'logs/{process_id}_preprocess.log').get_logger()
 
-        # TODO: Is there a need the fetch_files method returns the filename/content dict?
-        in_path = os.path.join(self.directory, in_path, self.uuid)
-        out_path = os.path.join(self.directory, out_path, self.uuid)
+        state = PreprocessState(
+            process_id=process_id,
+            repo_name=repo_name,
+            repo_folder=repo_folder,
+            directory=directory,
+            in_path=in_path,
+            out_path=out_path,
+            crop=crop,
+            abbreviation=abbrev,
+            stop_on_fail=stop_on_fail,
+            **kwargs
+        )
+        self.progressStatus = PreprocessState(**state.model_dump(by_alias=True))
+        self.statusManager = Status(self.progressStatus)
+        self.image_processor = ImageProcessor(process_id)
+        self.image_downloader = ImageDownloader(process_id)
+        self.github_manager = GitHubManager(github_access_token)
+        self.process_id = process_id
+        self.callback = callback_preprocess
+
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        in_path = os.path.join(directory, in_path, process_id)
+        out_path = os.path.join(directory, out_path, process_id)
 
         if not os.path.exists(in_path):
             os.makedirs(in_path)
@@ -82,26 +111,30 @@ class Preprocessor:
 
         print(f"Fetching files from {repo_name} in folder {repo_folder}...")
         print(f"Paths: {in_path} -> {out_path}")
-        _ = self.github_manager.fetch_files(repo_name, repo_folder, ".xml", in_path)
-        files_download = glob(f'{in_path}/**/*', recursive=True)
-        self.preprocess_xml_file_list(
-            files_download,
+        files_fetched, files_download_failed = self.github_manager.fetch_files(repo_name,
+                                                                               repo_folder,
+                                                                               ".xml",
+                                                                               in_path)
+        self.progressStatus = self.statusManager.initialize_status(files_fetched, files_download_failed)
+        self.logger.info(
+            f"Preprocessor.preprocess(): Fetched {len(files_fetched)} files from {repo_name} in folder {repo_folder}.")
+        self.logger.info(f"Preprocessor.preprocess(): Starting preprocessing...")
+        await self.preprocess_xml_file_list(
+            files_fetched,
             in_path,
             out_path,
             stop_on_fail,
             abbrev,
             crop
         )
-        files_upload = glob(f'{out_path}/**/*', recursive=True)
-        self.github_manager.upload_documents(repo_name, files_upload, commit_message="Preprocessed files")
 
-    def preprocess_xml_file_list(self,
-                                 page_xml_list: List[str],
-                                 in_path: str,
-                                 out_path: str,
-                                 stop_on_fail: bool = True,
-                                 abbrev: bool = False,
-                                 crop: bool = False) -> None:
+    async def preprocess_xml_file_list(self,
+                                       page_xml_list: List[str],
+                                       in_path: str,
+                                       out_path: str,
+                                       stop_on_fail: bool = True,
+                                       abbrev: bool = False,
+                                       crop: bool = False) -> None:
         """
         Preprocess a list of XML files.
 
@@ -113,29 +146,55 @@ class Preprocessor:
         :param crop: Whether to crop images.
         """
 
-        start_time = time.time()
         for i, xml_file in enumerate(page_xml_list):
+            self.logger.info(f"Preprocessor.preprocess_xml_file_list(): Preprocessing {xml_file}...")
+            self.logger.info(f"Preprocessor.preprocess_xml_file_list(): Progress: {i + 1}/{len(page_xml_list)}")
             try:
                 self.preprocess_single_xml_file(crop, abbrev, in_path, out_path, xml_file)
                 self.logger.info(f"Preprocessor.preprocess_xml_file_list(): Preprocessed {xml_file}.")
-                self.status.update_progress_on_success(i + 1, xml_file, len(page_xml_list))
-            except ImageFetchException as e:
-                self.logger.error(f"Error while fetching images: {e}.")
-                # self.status.update_list_status("Failed to fetch images:", self.image_downloader.failed_downloads)
-                # self.status.update_list_status("Failed to process images:", self.image_downloader.failed_processing)
+                self.progressStatus = await self.statusManager.update_progress(
+                    current_item_index=i + 1,
+                    current_item_name=xml_file,
+                    success=True
+                )
+
+                if self.callback:
+                    await self.callback(self.progressStatus.model_dump(by_alias=True))
+            except (ParseTextLinesException, ImageProcessException, ImageFetchException) as e:
+                self.logger.error(f"Preprocessor.preprocess_xml_file_list(): Failed to preprocess {xml_file}.",
+                                  exc_info=True)
                 if stop_on_fail:
+                    self.statusManager.state.state = StateEnum.FAILED
+                    self.progressStatus = await self.statusManager.update_progress(
+                        i + 1,
+                        xml_file,
+                        success=False,
+                        exception=e,
+                        state_enum=StateEnum.FAILED
+                    )
+                    self.logger.error(f"Preprocessor.preprocess_xml_file_list(): Stopping processing due to failure.")
                     raise e
-            except ParseTextLinesException as e:
-                self.logger.error(f"Error while parsing textlines: {e}.")
-                if stop_on_fail:
-                    raise e
-            except ImageProcessException as e:
-                self.logger.error(f"Error while processing images: {e}.")
-                if stop_on_fail:
-                    raise e
+                else:
+                    self.progressStatus = await self.statusManager.update_progress(
+                        i + 1,
+                        xml_file,
+                        success=False,
+                        exception=e)
+                    self.logger.error(f"Preprocessor.preprocess_xml_file_list(): Continuing processing after failure.")
             finally:
-                self.status.calculate_runtime(start_time)
-                self._save_failed_files(out_path, to_save='both')
+                self.statusManager.calculate_runtime()
+                self._save_failed_files(out_path)
+                self.logger.info(
+                    f"Preprocessor.preprocess_xml_file_list(): Preprocessing {xml_file} done. "
+                    f"Runtime (sec): {self.progressStatus.runtime}")
+
+        self.progressStatus = await self.statusManager.update_progress(state_enum=StateEnum.DONE)
+        self.logger.info(
+            f"Preprocessor.preprocess_xml_file_list(): Preprocessing done. ProgressStatus: {self.progressStatus}"
+        )
+        self.progressStatus.state = StateEnum.DONE
+        if self.callback:
+            await self.callback(self.progressStatus.model_dump(by_alias=True))
 
     def preprocess_single_xml_file(self,
                                    crop: bool,
@@ -152,7 +211,7 @@ class Preprocessor:
         :param out_path: The output path where processed files will be saved.
         :param xml_file: The XML file to be processed.
         """
-        page_parser = PageParser(xml_file, self.uuid)
+        page_parser = PageParser(xml_file, self.process_id)
 
         file_name = page_parser.get_image_file_name()
         metadata = page_parser.get_metadata()
@@ -182,7 +241,7 @@ class Preprocessor:
 
             self._save_image_per_line(image_per_line, out_path, line_name)
 
-            self._save_gt_dict(gt_dict, out_path)
+        self._save_gt_dict(gt_dict, out_path)
 
     @staticmethod
     def _save_image_per_line(image: Image,
@@ -208,7 +267,7 @@ class Preprocessor:
         """
         file_path = os.path.join(out_path, 'gt.txt')
 
-        with open(file_path, "w") as txt_file:
+        with open(file_path, "a") as txt_file:
             for line_name, line_text in gt_dict.items():
                 txt_file.write(f"{line_name}\t{line_text}\n")
 
@@ -221,12 +280,12 @@ class Preprocessor:
         """
 
         if to_save == 'image_process' or to_save == 'both':
-            file_path = os.path.join(out_path, f'{self.uuid}_image_process_failed_files.txt')
+            file_path = os.path.join(out_path, f'{self.process_id}_image_process_failed_files.txt')
             with open(file_path, "w") as txt_file:
                 for file in self.image_processor.failed_processing:
                     txt_file.write(f"{file}\n")
         if to_save == 'image_download' or to_save == 'both':
-            file_path = os.path.join(out_path, f'{self.uuid}_image_download_failed_files.txt')
+            file_path = os.path.join(out_path, f'{self.process_id}_image_download_failed_files.txt')
             with open(file_path, "w") as txt_file:
                 for file in self.image_downloader.failed_downloads:
                     txt_file.write(f"{file}\n")

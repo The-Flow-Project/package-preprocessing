@@ -19,29 +19,47 @@ class ImageProcessor:
     Process images from Transkribus and eScriptorium to extract text lines.
     """
 
-    def __init__(self, uuid: str) -> None:
+    def __init__(self, process_id: str) -> None:
         """
         Initialize class parameters.
 
         :param: self.failed_processing: images which could not be processed.
-        :param: self.uuid: the unique identifier of the process.
+        :arg: self.process_id: the unique identifier of the process.
         :param: self.logger: the logger instance.
         """
         self.failed_processing: List[str] = []
-        self.uuid = uuid
-        self.logger = Logger(log_file=f'logs/{uuid}_process_images.log').get_logger()
+        self.logger = Logger(log_file=f'logs/{process_id}_process_images.log').get_logger()
 
     @staticmethod
-    def _load_image(image_path: str) -> Image:
+    def _correct_orientation(image):
+        try:
+            exif = image.getexif()
+
+            if exif:
+                # key 274 = orientation, returns 1 if not existing
+                orientation = exif.get(274, 1)
+
+                if orientation == 3:
+                    image = image.rotate(180, expand=True)
+                elif orientation == 6:
+                    image = image.rotate(270, expand=True)
+                elif orientation == 8:
+                    image = image.rotate(90, expand=True)
+            return image
+        except (AttributeError, KeyError, IndexError):
+            return image
+
+    def _load_image(self, image_path: str) -> Image:
         """
         Load image.
 
         :param: the path of the image to be loaded.
         :return: the loaded image as a PILImage.
         """
-        with Image.open(image_path) as image:
-            image.load()
-            return image
+        image = Image.open(image_path)
+        image = self._correct_orientation(image)
+
+        return image
 
     def extract_line_from_image(self,
                                 baseline_points: List[Coordinate],
@@ -58,6 +76,8 @@ class ImageProcessor:
         :return: Line as PILImage object.
         """
         try:
+            self.logger.info(f'{self.__class__.__name__} - baseline_points: {baseline_points}')
+
             y_max_base = Coordinate.max_y(baseline_points)
             x_min_coord = Coordinate.min_x(coordinates)
             x_max_coord = Coordinate.max_x(coordinates)
@@ -70,22 +90,25 @@ class ImageProcessor:
 
             img = self._load_image(in_path)
             image_line = img.crop((x_min_coord, y_min_coord, x_max_coord, y_max_coord))
-            self.logger.info("Successfully extracted line %s for image %s", line_number, in_path)
+            self.logger.info(
+                f'{self.__class__.__name__} - Successfully extracted line {line_number} for image {in_path}')
             return image_line
         except FileNotFoundError as e:
-            self.logger.error('File not found: %s: %s', in_path, str(e))
+            self.logger.error(f'{self.__class__.__name__} - File not found: {in_path}, {str(e)}')
             self.failed_processing.append(in_path)
             raise ImageProcessException('File not found: %s %s:', in_path, e)
         except PIL.UnidentifiedImageError as e:
-            self.logger.error('The image cannot be opened and identified for file %s %s', in_path, str(e))
+            self.logger.error(
+                f'{self.__class__.__name__} - The image cannot be opened and identified for file {in_path}, {str(e)}')
             self.failed_processing.append(in_path)
             raise ImageProcessException('The image cannot be opened and identified for file %s %s', in_path, e)
         except ValueError as e:
-            self.logger.error('Wrong value provided for file %s on line %s, %s', in_path, line_number, str(e))
+            self.logger.error(
+                f'{self.__class__.__name__} - Wrong value provided for file {in_path} on line {line_number}, {str(e)}')
             self.failed_processing.append(in_path)
             raise ImageProcessException('Wrong value provided for file %s %s', in_path, str(e))
         except TypeError as e:
-            self.logger.error('Wrong type provided for file %s %s', in_path, str(e))
+            self.logger.error(f'{self.__class__.__name__} - Wrong type provided for file {in_path}, {str(e)}')
             self.failed_processing.append(in_path)
             raise ImageProcessException('Wrong type provided for file %s %s', in_path, str(e))
 
@@ -122,22 +145,33 @@ class ImageProcessor:
             cropped_image = Image.new("RGBA", cutout.size, (255, 255, 255, 255))
             cropped_image.paste(cutout, (0, 0), mask=cutout)
             cropped_image = cropped_image.convert('RGB')
-            self.logger.info("Successfully extracted line %s for image %s", line_number, image_path)
+            self.logger.info(
+                f'{self.__class__.__name__} - Successfully extracted line {line_number} for image {image_path}'
+            )
             return cropped_image
         except FileNotFoundError as e:
-            self.logger.error('File not found: %s: %s', image_path, str(e))
+            self.logger.error(f'{self.__class__.__name__} - File not found: {image_path}', exc_info=True)
             self.failed_processing.append(image_path)
             raise ImageProcessException('File not found: %s %s:', image_path, e)
         except PIL.UnidentifiedImageError as e:
-            self.logger.error('The image cannot be opened and identified for file %s %s', image_path, str(e))
+            self.logger.error(
+                f'{self.__class__.__name__} - The image cannot be opened and identified for file {image_path}',
+                exc_info=True,
+            )
             self.failed_processing.append(image_path)
             raise ImageProcessException('The image cannot be opened and identified for file %s %s', image_path, e)
         except ValueError as e:
-            self.logger.error('Wrong value provided for file %s %s', image_path, str(e))
+            self.logger.error(
+                f'{self.__class__.__name__} - Wrong value provided for file {image_path}',
+                exc_info=True,
+            )
             self.failed_processing.append(image_path)
             raise ImageProcessException('Wrong value provided for file %s %s', image_path, str(e))
         except TypeError as e:
-            self.logger.error('Wrong type provided for file %s %s', image_path, str(e))
+            self.logger.error(
+                f'{self.__class__.__name__} - Wrong type provided for file {image_path}',
+                exc_info=True,
+            )
             self.failed_processing.append(image_path)
             raise ImageProcessException('Wrong type provided for file %s %s', image_path, str(e))
 
