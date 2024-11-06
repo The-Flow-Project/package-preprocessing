@@ -3,6 +3,7 @@
 # ===============================================================================
 import re
 from typing import List, Dict, Optional, Union
+from collections import defaultdict
 
 from lxml import etree as et
 
@@ -86,7 +87,7 @@ class Line:
                  line_document: str,
                  line_coordinates: List[Coordinate],
                  line_baseline: List[Coordinate],
-                 abbreviations: List[Dict]):
+                 custom_attributes: Dict[str, List[Dict[str, str]]]):
         """
         initialise class parameters.
 
@@ -95,14 +96,14 @@ class Line:
         :param line_document: the processed document.
         :param line_coordinates: the coordinates of the line.
         :param line_baseline: the baseline coordinates of the line.
-        :param abbreviations: the abbreviations found in the line.
+        :param custom_attributes: custom attributes of the line, including abbreviations.
         """
         self.line_number = line_number
         self.line_text = line_text
         self.line_document = line_document
         self.line_coordinates = line_coordinates
         self.line_baseline = line_baseline
-        self.abbreviations = abbreviations
+        self.custom_attributes = custom_attributes
 
     def __eq__(self, other):
         """Override the equality operator."""
@@ -112,7 +113,7 @@ class Line:
                     self.line_document == other.line_document and
                     self.line_coordinates == other.line_coordinates and
                     self.line_baseline == other.line_baseline and
-                    self.abbreviations == other.abbreviations)
+                    self.custom_attributes == other.custom_attributes)
         return False
 
     def get_output_filename(self) -> str:
@@ -125,7 +126,7 @@ class Line:
 
         return out_image_name
 
-    def get_line_text(self, expand_abbrev=False):
+    def get_line_text(self, expand_abbrev=False) -> str:
         """
         extract text from line
 
@@ -135,23 +136,23 @@ class Line:
         if expand_abbrev is False:
             return self.line_text
         else:
-            expanded_line = self.expand_abbreviations(self.line_text)
+            expanded_line = self.expand_abbreviations()
             return expanded_line
 
-    def expand_abbreviations(self, text):
+    def expand_abbreviations(self) -> str:
         """
         Expand the abbreviations.
-
-        :param text: the text to be expanded.
-
         """
         add_offset = 0
-        for abbreviation in self.abbreviations:
-            offset = abbreviation['offset']
-            length = abbreviation['length']
-            expansion = abbreviation['expansion']
-            text = text[:offset + add_offset] + expansion + text[offset + add_offset + length:]
-            add_offset += len(expansion) - length
+        text = self.line_text
+        if 'abbrev' in self.custom_attributes.keys():
+            abbreviations = self.custom_attributes['abbrev']
+            for abbreviation in abbreviations:
+                offset = int(abbreviation['offset'])
+                length = int(abbreviation['length'])
+                expansion = abbreviation['expansion']
+                text = text[:offset + add_offset] + expansion + text[offset + add_offset + length:]
+                add_offset += len(expansion) - length
         return text
 
 
@@ -244,7 +245,7 @@ class PageParser:
                 line_text = self.get_line_text_string(text_line)
                 line_coordinates = self.get_coordinates(text_line)
                 line_baseline_points = self.get_baseline(text_line)
-                abbreviations = self.get_abbreviations(text_line)
+                custom_attributes = self.get_custom_attribute(text_line)
                 if line_text == '' or line_coordinates == [] or line_baseline_points == []:
                     self.logger.warning(
                         f'{self.__class__.__name__} - Skipping line {line_number} in file {line_document} as it is '
@@ -256,7 +257,7 @@ class PageParser:
                             line_document,
                             line_coordinates,
                             line_baseline_points,
-                            abbreviations)
+                            custom_attributes)
                 line_list.append(line)
                 line_number += 1
         except FileNotFoundError as e:
@@ -388,36 +389,32 @@ class PageParser:
         return baseline_points
 
     @staticmethod
-    def get_abbreviations(text_line: et.Element) -> List[Dict[str, Union[str, int]]]:
+    def get_custom_attribute(text_line: et.Element) -> Dict[str, List[Dict[str, str]]]:
         """
-        get the abbreviations for a given line.
+        get the custom attribute for a given line.
 
-        :param: a text line from an XML file.
-        :return: list of dictionaries containing offset, length and expansion.
+        :param text_line: a text line from an XML file.
+        :return: custom attributes as nested dictionary.
         """
-        abbreviations: List[Dict[str, Union[str, int]]] = []
-        custom_attr: str = text_line.get('custom')
-        if custom_attr is not None:
-            split_string: List[str] = custom_attr.split('}')
-            for abbreviation_str in split_string:
-                if re.search("abbrev.*expansion", abbreviation_str):
-                    abbreviation: Dict[str, Union[str, int]] = {}
-                    parts: List[str] = (abbreviation_str
-                                        .strip()
-                                        .strip('abbrev {')
-                                        .rstrip(';')
-                                        .replace(' ', '')
-                                        .split(';'))
-                    for part in parts:
-                        p: List[str] = part.split(':')
-                        if p[0] == 'expansion':
-                            abbreviation[p[0]] = p[1]
-                        else:
-                            if p[1].isdigit():
-                                abbreviation[p[0]] = int(p[1])
-                    if 'expansion' in abbreviation.keys():
-                        abbreviations.append(abbreviation)
-        return abbreviations
+        attributes = defaultdict(list)
+        pattern = r"(\w+)\s*\{([^}]+)\}"
+        matches = re.findall(pattern, text_line.get('custom'))
+
+        for m in matches:
+            key = m[0]
+            value_dict = {}
+
+            values = m[1]
+            values = [v.strip() for v in values.split(';')]
+            for v in values:
+                if ':' not in v:
+                    continue
+                k, v = v.split(':')
+                value_dict[k] = v
+
+            attributes[key].append(value_dict)
+
+        return dict(attributes)
 
     def get_failed_processing(self) -> List[str]:
         """
@@ -426,3 +423,10 @@ class PageParser:
         :return: List of XML files which failed during processing.
         """
         return self.failed_processing
+
+    def get_page(self):
+        return Page(
+            self.get_image_file_name(),
+            self.process_lines_from_xml_file(),
+            self.get_metadata()
+        )
