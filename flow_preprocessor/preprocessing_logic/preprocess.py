@@ -2,6 +2,7 @@
 # IMPORT STATEMENTS
 # ===============================================================================
 import os
+import json
 from typing import List, Optional, Dict, Any
 
 from PIL.Image import Image
@@ -269,7 +270,8 @@ class Preprocessor:
 
         with open(file_path, "a") as txt_file:
             for line_name, line_text in gt_dict.items():
-                txt_file.write(f"{line_name}\t{line_text}\n")
+                escaped_text = json.dumps(line_text)
+                txt_file.write(f"{line_name}\t{escaped_text}\n")
 
     def _save_failed_files(self, out_path: str, to_save: str = 'both') -> None:
         """

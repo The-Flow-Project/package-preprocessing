@@ -61,21 +61,21 @@ class PreprocessState(BaseModel):
                              title="State",
                              default=StateEnum.IN_PROGRESS)
     files_successful: Optional[int] = Field(alias="files_successful",
-                                  description="The amount of successfully processed files.",
-                                  title="Files-Successful",
-                                  default=0)
+                                            description="The amount of successfully processed files.",
+                                            title="Files-Successful",
+                                            default=0)
     files_failed_process: Optional[int] = Field(alias="files_failed_process",
-                                      description="The amount of files that failed processing.",
-                                      title="Files-Failed-Process",
-                                      default=0)
+                                                description="The amount of files that failed processing.",
+                                                title="Files-Failed-Process",
+                                                default=0)
     files_failed_download: Optional[int] = Field(alias="files_failed_download",
-                                       description="The amount of files that failed downloading.",
-                                       title="Files-Failed-Download",
-                                       default=0)
+                                                 description="The amount of files that failed downloading.",
+                                                 title="Files-Failed-Download",
+                                                 default=0)
     files_total: Optional[int] = Field(alias="files_total",
-                             description="The total amount of files.",
-                             title="Files-Total",
-                             default=0)
+                                       description="The total amount of files.",
+                                       title="Files-Total",
+                                       default=0)
     filenames_successful: Optional[List] = Field(alias="filenames_successful",
                                                  description="The names of the successfully processed files.",
                                                  title="Filenames-Successful",

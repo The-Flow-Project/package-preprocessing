@@ -125,14 +125,14 @@ class Line:
 
         return out_image_name
 
-    def get_line_text(self, abbrev=False):
+    def get_line_text(self, expand_abbrev=False):
         """
         extract text from line
 
-        :param abbrev: set whether to extract abbreviations or not.
+        :param expand_abbrev: set whether to keep the abbreviations (False) or expand them (True).
 
         """
-        if abbrev is True:
+        if expand_abbrev is False:
             return self.line_text
         else:
             expanded_line = self.expand_abbreviations(self.line_text)
