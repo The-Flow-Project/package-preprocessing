@@ -90,6 +90,7 @@ class ImageProcessor:
 
             img = self._load_image(in_path)
             image_line = img.crop((x_min_coord, y_min_coord, x_max_coord, y_max_coord))
+            img.close()
             self.logger.info(
                 f'{self.__class__.__name__} - Successfully extracted line {line_number} for image {in_path}')
             return image_line
@@ -148,6 +149,8 @@ class ImageProcessor:
             self.logger.info(
                 f'{self.__class__.__name__} - Successfully extracted line {line_number} for image {image_path}'
             )
+            new_image.close()
+            img.close()
             return cropped_image
         except FileNotFoundError as e:
             self.logger.error(f'{self.__class__.__name__} - File not found: {image_path}', exc_info=True)

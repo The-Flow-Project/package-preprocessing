@@ -241,6 +241,7 @@ class Preprocessor:
                                                                            line.line_number)
 
             self._save_image_per_line(image_per_line, out_path, line_name)
+            image_per_line.close()
 
         self._save_gt_dict(gt_dict, out_path)
 
