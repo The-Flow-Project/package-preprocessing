@@ -240,8 +240,8 @@ class PageParser:
         try:
             line_document = self.get_image_file_name()
             line_list: List[Line] = []
-            line_number = 0
             for text_line in self.root.findall(".//ns:TextLine", namespaces=self.xmlns):
+                line_number = self.get_line_id(text_line)
                 line_text = self.get_line_text_string(text_line)
                 line_coordinates = self.get_coordinates(text_line)
                 line_baseline_points = self.get_baseline(text_line)
@@ -252,14 +252,13 @@ class PageParser:
                         f'empty or has no coordinates or baseline points.'
                     )
                     continue
-                line = Line(str(line_number),
+                line = Line(line_number,
                             line_text,
                             line_document,
                             line_coordinates,
                             line_baseline_points,
                             custom_attributes)
                 line_list.append(line)
-                line_number += 1
         except FileNotFoundError as e:
             self.logger.error(
                 f'{self.__class__.__name__} - XML file not found: {line_document}',
@@ -415,6 +414,16 @@ class PageParser:
             attributes[key].append(value_dict)
 
         return dict(attributes)
+    
+    @staticmethod
+    def get_line_id(text_line: et.Element) -> Union[str, None]:
+        """
+        Get the line ID from the XML file.
+
+        :param text_line: A text line from the XML file.
+        :return: The line ID as a string.
+        """
+        return str(text_line.get('id'))
 
     def get_failed_processing(self) -> List[str]:
         """
