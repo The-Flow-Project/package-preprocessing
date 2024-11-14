@@ -225,7 +225,7 @@ class Preprocessor:
             if not abbrev:
                 gt_dict[line_name] = line.line_text
             else:
-                gt_dict[line_name] = line.expand_abbreviations(line.line_text)
+                gt_dict[line_name] = line.expand_abbreviations()
 
             image_path = os.path.join(in_path, page.image_file_name)
 
