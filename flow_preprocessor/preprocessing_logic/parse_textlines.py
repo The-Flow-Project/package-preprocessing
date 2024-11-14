@@ -148,6 +148,8 @@ class Line:
         if 'abbrev' in self.custom_attributes.keys():
             abbreviations = self.custom_attributes['abbrev']
             for abbreviation in abbreviations:
+                if 'offset' not in abbreviation.keys() or 'length' not in abbreviation.keys() or 'expansion' not in abbreviation.keys():
+                    continue
                 offset = int(abbreviation['offset'])
                 length = int(abbreviation['length'])
                 expansion = abbreviation['expansion']
