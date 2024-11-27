@@ -16,7 +16,7 @@ from flow_preprocessor.preprocessing_logic.process_images import ImageProcessor
 from flow_preprocessor.preprocessing_logic.status import Status
 from flow_preprocessor.preprocessing_logic.models import PreprocessState, StateEnum
 from flow_preprocessor.exceptions.exceptions import ImageProcessException, ImageFetchException, ParseTextLinesException
-from flow_preprocessor.utils.logging.logger import Logger
+from flow_preprocessor.utils.logging.preprocessing_logger import logger
 
 
 # ===============================================================================
@@ -45,8 +45,6 @@ class Preprocessor:
         self.statusManager = None
         self.process_id = None
         self.callback = None
-
-        self.logger = None
 
     async def preprocess(self,
                          process_id: str,
@@ -77,7 +75,6 @@ class Preprocessor:
         :param stop_on_fail: whether to stop processing on failure.
         :param callback_preprocess: a callback function to be called after each step.
         """
-        self.logger = Logger(log_file=f'logs/{process_id}_preprocess.log').get_logger()
 
         state = PreprocessState(
             process_id=process_id,
@@ -117,9 +114,9 @@ class Preprocessor:
                                                                                ".xml",
                                                                                in_path)
         self.progressStatus = self.statusManager.initialize_status(files_fetched, files_download_failed)
-        self.logger.info(
+        logger.info(
             f"Preprocessor.preprocess(): Fetched {len(files_fetched)} files from {repo_name} in folder {repo_folder}.")
-        self.logger.info(f"Preprocessor.preprocess(): Starting preprocessing...")
+        logger.info(f"Preprocessor.preprocess(): Starting preprocessing...")
         await self.preprocess_xml_file_list(
             files_fetched,
             in_path,
@@ -148,11 +145,11 @@ class Preprocessor:
         """
 
         for i, xml_file in enumerate(page_xml_list):
-            self.logger.info(f"Preprocessor.preprocess_xml_file_list(): Preprocessing {xml_file}...")
-            self.logger.info(f"Preprocessor.preprocess_xml_file_list(): Progress: {i + 1}/{len(page_xml_list)}")
+            logger.info(f"Preprocessor.preprocess_xml_file_list(): Preprocessing {xml_file}...")
+            logger.info(f"Preprocessor.preprocess_xml_file_list(): Progress: {i + 1}/{len(page_xml_list)}")
             try:
                 self.preprocess_single_xml_file(crop, abbrev, in_path, out_path, xml_file)
-                self.logger.info(f"Preprocessor.preprocess_xml_file_list(): Preprocessed {xml_file}.")
+                logger.info(f"Preprocessor.preprocess_xml_file_list(): Preprocessed {xml_file}.")
                 self.progressStatus = await self.statusManager.update_progress(
                     current_item_index=i + 1,
                     current_item_name=xml_file,
@@ -162,8 +159,8 @@ class Preprocessor:
                 if self.callback:
                     await self.callback(self.progressStatus.model_dump(by_alias=True))
             except (ParseTextLinesException, ImageProcessException, ImageFetchException) as e:
-                self.logger.error(f"Preprocessor.preprocess_xml_file_list(): Failed to preprocess {xml_file}.",
-                                  exc_info=True)
+                logger.error(f"Preprocessor.preprocess_xml_file_list(): Failed to preprocess {xml_file}.",
+                             exc_info=True)
                 if stop_on_fail:
                     self.statusManager.state.state = StateEnum.FAILED
                     self.progressStatus = await self.statusManager.update_progress(
@@ -173,7 +170,7 @@ class Preprocessor:
                         exception=e,
                         state_enum=StateEnum.FAILED
                     )
-                    self.logger.error(f"Preprocessor.preprocess_xml_file_list(): Stopping processing due to failure.")
+                    logger.error(f"Preprocessor.preprocess_xml_file_list(): Stopping processing due to failure.")
                     raise e
                 else:
                     self.progressStatus = await self.statusManager.update_progress(
@@ -181,16 +178,16 @@ class Preprocessor:
                         xml_file,
                         success=False,
                         exception=e)
-                    self.logger.error(f"Preprocessor.preprocess_xml_file_list(): Continuing processing after failure.")
+                    logger.error(f"Preprocessor.preprocess_xml_file_list(): Continuing processing after failure.")
             finally:
                 self.statusManager.calculate_runtime()
                 self._save_failed_files(out_path)
-                self.logger.info(
+                logger.info(
                     f"Preprocessor.preprocess_xml_file_list(): Preprocessing {xml_file} done. "
                     f"Runtime (sec): {self.progressStatus.runtime}")
 
         self.progressStatus = await self.statusManager.update_progress(state_enum=StateEnum.DONE)
-        self.logger.info(
+        logger.info(
             f"Preprocessor.preprocess_xml_file_list(): Preprocessing done. ProgressStatus: {self.progressStatus}"
         )
         self.progressStatus.state = StateEnum.DONE

@@ -8,7 +8,7 @@ import requests
 
 from flow_preprocessor.exceptions.exceptions import ImageFetchException
 from flow_preprocessor.preprocessing_logic.parse_textlines import Page
-from flow_preprocessor.utils.logging.logger import Logger
+from flow_preprocessor.utils.logging.preprocessing_logger import logger
 
 
 # ===============================================================================
@@ -36,8 +36,6 @@ class ImageDownloader:
         self.failed_processing: List[str] = []
         self.successes: List[str] = []
 
-        self.logger = Logger(log_file=f'logs/{uniqueid}_fetch_images.log').get_logger()
-
     def _request_image_via_url(self, url: str, filename: str) -> None:
         """
         Request single image from Transkribus and eScriptorium.
@@ -49,7 +47,7 @@ class ImageDownloader:
         response.raise_for_status()
         with open(filename, 'wb') as file:
             file.write(response.content)
-        self.logger.info(f'{self.__class__.__name__} - File downloaded: {filename}')
+        logger.info(f'{self.__class__.__name__} - File downloaded: {filename}')
 
     def fetch_image(self, page: Page, img_output: str) -> None:
         """
@@ -70,19 +68,19 @@ class ImageDownloader:
 
         except requests.exceptions.RequestException as e:
             self.failed_downloads.append(image_filename)
-            self.logger.error(
+            logger.error(
                 f'{self.__class__.__name__} - Failed to download file {image_filename}',
                 exc_info=True
             )
             raise ImageFetchException('Failed to download file %s.', e)
         except FileNotFoundError as e:
-            self.logger.error(
+            logger.error(
                 f'{self.__class__.__name__} - XML file not found: {page}',
                 exc_info=True
             )
             raise ImageFetchException('XML file not found: %s', e)
         except (et.XMLSyntaxError, et.ParseError, IndexError, TypeError, ValueError) as e:
-            self.logger.error(
+            logger.error(
                 f'{self.__class__.__name__} - Error parsing file {page}',
                 exc_info=True
             )
@@ -90,7 +88,7 @@ class ImageDownloader:
                 self.failed_processing.append(image_filename)
             raise ImageFetchException('Error parsing file %s: %s', e)
         except Exception as e:
-            self.logger.error(
+            logger.error(
                 f'{self.__class__.__name__} - An unexpected error occurred for file {page}',
                 exc_info=True
             )

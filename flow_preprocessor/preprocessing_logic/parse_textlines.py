@@ -8,7 +8,7 @@ from collections import defaultdict
 from lxml import etree as et
 
 from flow_preprocessor.exceptions.exceptions import ParseTextLinesException
-from flow_preprocessor.utils.logging.logger import Logger
+from flow_preprocessor.utils.logging.preprocessing_logger import logger
 
 
 # ===============================================================================
@@ -224,7 +224,6 @@ class PageParser:
         :param self.xmlns: namespace declaration.
         :param self.failed_processing: list of images that could not be processed.
         """
-        self.logger = Logger(log_file=f'logs/{process_id}_parse_textlines.log').get_logger()
         self.tree = et.parse(xml_file)
         self.root = self.tree.getroot()
         self.namespace_uri = self.root.tag.split('}')[0][1:]
@@ -249,7 +248,7 @@ class PageParser:
                 line_baseline_points = self.get_baseline(text_line)
                 custom_attributes = self.get_custom_attribute(text_line)
                 if line_text == '' or line_coordinates == [] or line_baseline_points == []:
-                    self.logger.warning(
+                    logger.warning(
                         f'{self.__class__.__name__} - Skipping line {line_number} in file {line_document} as it is '
                         f'empty or has no coordinates or baseline points.'
                     )
@@ -262,28 +261,28 @@ class PageParser:
                             custom_attributes)
                 line_list.append(line)
         except FileNotFoundError as e:
-            self.logger.error(
+            logger.error(
                 f'{self.__class__.__name__} - XML file not found: {line_document}',
                 exc_info=True,
             )
             self.failed_processing.append(line_document)
             raise ParseTextLinesException('XML file not found:  %s', line_document, e)
         except (et.XMLSyntaxError, et.ParseError, IndexError, TypeError, ValueError) as e:
-            self.logger.error(
+            logger.error(
                 f'{self.__class__.__name__} - Error parsing file {line_document}',
                 exc_info=True,
             )
             self.failed_processing.append(line_document)
             raise ParseTextLinesException(f'Error parsing file {line_document}: {e}')
         except Exception as e:
-            self.logger.error(
+            logger.error(
                 f'{self.__class__.__name__} - An unexpected error occurred for file {line_document}',
                 exc_info=True,
             )
             self.failed_processing.append(line_document)
             raise ParseTextLinesException('An unexpected error occurred for file %s: %s', line_document, e)
 
-        self.logger.info(f'{self.__class__.__name__} - Successfully processed lines in file {line_document}')
+        logger.info(f'{self.__class__.__name__} - Successfully processed lines in file {line_document}')
         return line_list
 
     def get_metadata(self) -> Metadata:
@@ -313,7 +312,7 @@ class PageParser:
         """
         creator = self.root.find(".//ns:Metadata/ns:Creator", namespaces=self.xmlns)
         creator_text: Optional[str] = creator.text
-        self.logger.info(f'{self.__class__.__name__} - Got creator: {creator_text}')
+        logger.info(f'{self.__class__.__name__} - Got creator: {creator_text}')
         return creator_text
 
     def get_image_url(self) -> str:
@@ -338,7 +337,7 @@ class PageParser:
             if type(transkribus_metadata) is list:
                 transkribus_metadata = transkribus_metadata[0]
             image_url = transkribus_metadata.get('imgUrl')
-        self.logger.info(f'{self.__class__.__name__} - Got image URL: {image_url}')
+        logger.info(f'{self.__class__.__name__} - Got image URL: {image_url}')
         return image_url
 
     def get_line_text_string(self, text_line: et.Element) -> str:
@@ -352,7 +351,7 @@ class PageParser:
             raise ValueError("text_line is None")
 
         unicode_text = text_line.find('.//ns:Unicode', namespaces=self.xmlns)
-        self.logger.info(f'{self.__class__.__name__} - Got Unicode text: {unicode_text.text}')
+        logger.info(f'{self.__class__.__name__} - Got Unicode text: {unicode_text.text}')
         if unicode_text is not None and unicode_text.text is not None:
             text: str = unicode_text.text.strip()
         else:

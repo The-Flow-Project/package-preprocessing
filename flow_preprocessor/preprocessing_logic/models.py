@@ -17,7 +17,8 @@ class PreprocessState(BaseModel):
                             title="ID")
     created_at: datetime = Field(alias="created_at",
                                  description="The timestamp of the preprocess status creation.",
-                                 title="Created-At")
+                                 title="Created-At",
+                                 default_factory=datetime.now)
     repo_name: str = Field(alias="repo_name",
                            description="Name of the GitHub-repository.",
                            title="Repository-Name")
