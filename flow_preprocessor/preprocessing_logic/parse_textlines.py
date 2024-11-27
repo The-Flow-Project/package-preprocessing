@@ -354,7 +354,7 @@ class PageParser:
             raise ValueError("text_line is None")
 
         unicode_text = text_line.find('.//ns:Unicode', namespaces=self.xmlns)
-        if unicode_text is not None and getattr(unicode_text, 'text', None) is not None:
+        if unicode_text is not None and hasattr(unicode_text, 'text'):
             logger.info(f'{self.__class__.__name__} - Got Unicode text: {unicode_text.text}')
             text: str = unicode_text.text.strip()
         else:
