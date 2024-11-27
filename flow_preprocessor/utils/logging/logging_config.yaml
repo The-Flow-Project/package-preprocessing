@@ -1,0 +1,31 @@
+version: 1
+disable_existing_loggers: False
+
+formatters:
+  detailed:
+    format: '%(asctime)s - %(name)s - %(filename)s - %(levelname)s - %(message)s'
+  brief:
+    format: '%(levelname)s - %(message)s'
+
+handlers:
+  file:
+    class: logging.FileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/preprocessing.log
+    mode: w  # Overwrite the log file on each run
+    encoding: utf-8
+  console:
+    class: logging.StreamHandler
+    level: DEBUG
+    formatter: brief
+
+loggers:
+  preprocessing_logger:
+    level: DEBUG
+    handlers: [file, console]
+    propagate: False
+
+root:
+  level: DEBUG
+  handlers: [file, console]
