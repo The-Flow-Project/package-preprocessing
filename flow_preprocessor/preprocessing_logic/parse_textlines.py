@@ -314,8 +314,12 @@ class PageParser:
         :return: creator tag as string.
         """
         creator = self.root.find(".//ns:Metadata/ns:Creator", namespaces=self.xmlns)
-        creator_text: Optional[str] = creator.text
-        logger.info(f'{self.__class__.__name__} - Got creator: {creator_text}')
+        if creator is not None and hasattr(creator, 'text'):
+            creator_text: Optional[str] = creator.text
+            logger.info(f'{self.__class__.__name__} - Got creator: {creator_text}')
+        else:
+            creator_text = ""
+            logger.info(f'{self.__class__.__name__} - No creator text found')
         return creator_text
 
     def get_image_url(self) -> str:
