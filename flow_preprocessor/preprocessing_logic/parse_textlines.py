@@ -360,7 +360,10 @@ class PageParser:
         unicode_text = text_line.find('.//ns:Unicode', namespaces=self.xmlns)
         if unicode_text is not None and hasattr(unicode_text, 'text'):
             logger.info(f'{self.__class__.__name__} - Got Unicode text: {unicode_text.text}')
-            text: str = unicode_text.text.strip()
+            if unicode_text.text is not None:
+                text: str = unicode_text.text.strip()
+            else:
+                text: str = ''
         else:
             logger.info(f'{self.__class__.__name__} - No Unicode text found')
             text: str = ''
