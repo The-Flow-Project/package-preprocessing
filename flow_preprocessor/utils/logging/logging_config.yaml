@@ -25,9 +25,9 @@ handlers:
 loggers:
   preprocessing_logger:
     level: DEBUG
-    handlers: [file, console]
+    handlers: [ file, console ]
     propagate: False
 
 root:
   level: DEBUG
-  handlers: [file, console]
+  handlers: [ file, console ]

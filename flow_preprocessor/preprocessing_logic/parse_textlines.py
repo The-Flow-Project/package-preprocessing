@@ -148,7 +148,10 @@ class Line:
         if 'abbrev' in self.custom_attributes.keys():
             abbreviations = self.custom_attributes['abbrev']
             for abbreviation in abbreviations:
-                if 'offset' not in abbreviation.keys() or 'length' not in abbreviation.keys() or 'expansion' not in abbreviation.keys():
+                if ('offset' not in abbreviation.keys() or
+                        'length' not in abbreviation.keys() or
+                        'expansion' not in abbreviation.keys()
+                ):
                     continue
                 offset = int(abbreviation['offset'])
                 length = int(abbreviation['length'])
@@ -212,7 +215,7 @@ class PageParser:
     Download images from Transkribus and eScriptorium via image URL
     """
 
-    def __init__(self, xml_file, process_id) -> None:
+    def __init__(self, xml_file) -> None:
         """
         initialise class parameters.
 
@@ -351,10 +354,11 @@ class PageParser:
             raise ValueError("text_line is None")
 
         unicode_text = text_line.find('.//ns:Unicode', namespaces=self.xmlns)
-        logger.info(f'{self.__class__.__name__} - Got Unicode text: {unicode_text.text}')
         if unicode_text is not None and unicode_text.text is not None:
+            logger.info(f'{self.__class__.__name__} - Got Unicode text: {unicode_text.text}')
             text: str = unicode_text.text.strip()
         else:
+            logger.info(f'{self.__class__.__name__} - No Unicode text found')
             text: str = ''
         return text
 
@@ -415,7 +419,7 @@ class PageParser:
             attributes[key].append(value_dict)
 
         return dict(attributes)
-    
+
     @staticmethod
     def get_line_id(text_line: et.Element) -> Union[str, None]:
         """

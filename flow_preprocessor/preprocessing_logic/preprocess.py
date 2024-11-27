@@ -209,7 +209,7 @@ class Preprocessor:
         :param out_path: The output path where processed files will be saved.
         :param xml_file: The XML file to be processed.
         """
-        page_parser = PageParser(xml_file, self.process_id)
+        page_parser = PageParser(xml_file)
 
         file_name = page_parser.get_image_file_name()
         metadata = page_parser.get_metadata()
