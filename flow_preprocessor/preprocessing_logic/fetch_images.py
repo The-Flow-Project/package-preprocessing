@@ -19,14 +19,13 @@ class ImageDownloader:
     Download images from Transkribus and eScriptorium via image URL.
     """
 
-# ===============================================================================
-# METHODS
-# ===============================================================================
-    def __init__(self, uniqueid: str) -> None:
+    # ===============================================================================
+    # METHODS
+    # ===============================================================================
+    def __init__(self) -> None:
         """
         Initialise the lists of failed downloads, failed image processings and successful image processings.
 
-        :arg uniqueid: the unique identifier of the process.
         :param self.failed_downloads: List of failed downloads.
         :param self.successful_downloads: List of successful downloads.
         :param self.failed_image_processings: List of failed image processings.

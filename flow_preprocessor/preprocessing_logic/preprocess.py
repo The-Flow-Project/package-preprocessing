@@ -90,8 +90,8 @@ class Preprocessor:
         )
         self.progressStatus = PreprocessState(**state.model_dump(by_alias=True))
         self.statusManager = Status(self.progressStatus)
-        self.image_processor = ImageProcessor(process_id)
-        self.image_downloader = ImageDownloader(process_id)
+        self.image_processor = ImageProcessor()
+        self.image_downloader = ImageDownloader()
         self.github_manager = GitHubManager(github_access_token)
         self.process_id = process_id
         self.callback = callback_preprocess
