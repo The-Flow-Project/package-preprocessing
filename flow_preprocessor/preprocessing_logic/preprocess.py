@@ -3,10 +3,9 @@
 # ===============================================================================
 import os
 import json
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any, Coroutine, Callable, Optional
 
 from PIL.Image import Image
-from dependency_injector.providers import Coroutine
 
 from flow_githubmanager.github_interaction import GitHubManager
 
@@ -28,102 +27,109 @@ class Preprocessor:
     Perform preprocessing steps.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+            self,
+            process_id: str,
+            repo_name: str,
+            repo_folder: str,
+            github_access_token: Optional[str],
+            callback_preprocess: Callable[[dict], Coroutine[Any, Any, None]] = None,
+            crop: bool = False,
+            abbrev: bool = False,
+            stop_on_fail: bool = True,
+            directory: str = "tmp",
+            in_path: str = "",
+            out_path: str = "preprocessed",
+            **kwargs,
+    ) -> None:
         """
         initialize parameters.
 
+        :param process_id: id of preprocessing process.
+        :param repo_name: name of repo.
+        :param repo_folder: folder where repo is located.
+        :param github_access_token: github access token.
+        :param callback_preprocess: callback function for preprocessing.
+        :param crop: whether to crop.
+        :param abbrev: whether to abbrev.
+        :param stop_on_fail: whether to stop preprocessing.
+        :param directory: directory where preprocessed files are located.
+        :param in_path: path to preprocessed files.
+        :param out_path: path to output preprocessed files.
         :param self.image_processor: ImageProcessor instance.
         :param self.image_downloader: ImageDownloader instance.
         :param self.github_manager: GitHubManager instance.
         :param self.process_id: the ID of the preprocessors process.
+        :param kwargs: keyword arguments for status.
         """
 
-        self.image_processor = None
-        self.image_downloader = None
-        self.github_manager = None
-        self.progressStatus = None
-        self.statusManager = None
-        self.process_id = None
-        self.callback = None
+        self.process_id = process_id
+        self.repo_name = repo_name
+        self.repo_folder = repo_folder
+        self.github_access_token = github_access_token
+        self.callback = callback_preprocess
+        self.crop = crop
+        self.abbrev = abbrev
+        self.stop_on_fail = stop_on_fail
+        self.directory = directory
+        self.in_path = in_path
+        self.out_path = out_path
+        self.kwargs = kwargs
 
-    async def preprocess(self,
-                         process_id: str,
-                         repo_name: str,
-                         repo_folder: str,
-                         github_access_token: Optional[str] = None,
-                         crop: bool = False,
-                         abbrev: bool = False,
-                         stop_on_fail: bool = True,
-                         directory: str = "tmp",
-                         in_path: str = "",
-                         out_path: str = "preprocessed",
-                         callback_preprocess: Coroutine[Any, Any, None] = None,
-                         **kwargs,
-                         ) -> None:
-        """
-        Perform preprocessing steps: fetch XML files from GitHub, preprocess and push to GitHub.
-
-        :param process_id: the uniqueid of the preprocessors process.
-        :param repo_name: the name of the repository the results are fetched from and pushed to.
-        :param repo_folder: the folder in the repository the files are fetched from.
-        :param github_access_token: the GitHub access token.
-        :param directory: the directory where the files are saved locally.
-        :param in_path: the path the XML files are saved to - UUID will be a subfolder.
-        :param out_path: the path the preprocessed data is saved to - UUID will be a subfolder.
-        :param crop: whether to crop images.
-        :param abbrev: whether to expand abbreviations in text.
-        :param stop_on_fail: whether to stop processing on failure.
-        :param callback_preprocess: a callback function to be called after each step.
-        """
-
-        state = PreprocessState(
-            process_id=process_id,
-            repo_name=repo_name,
-            repo_folder=repo_folder,
-            directory=directory,
-            in_path=in_path,
-            out_path=out_path,
-            crop=crop,
-            abbreviation=abbrev,
-            stop_on_fail=stop_on_fail,
-            **kwargs
-        )
-        self.progressStatus = PreprocessState(**state.model_dump(by_alias=True))
-        self.statusManager = Status(self.progressStatus)
         self.image_processor = ImageProcessor()
         self.image_downloader = ImageDownloader()
         self.github_manager = GitHubManager(github_access_token)
-        self.process_id = process_id
-        self.callback = callback_preprocess
 
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+        state = PreprocessState(
+            process_id=self.process_id,
+            repo_name=self.repo_name,
+            repo_folder=self.repo_folder,
+            directory=self.directory,
+            in_path=self.in_path,
+            out_path=self.out_path,
+            crop=self.crop,
+            abbreviation=self.abbrev,
+            stop_on_fail=self.stop_on_fail,
+            **self.kwargs
+        )
+        self.progressStatus = PreprocessState(**state.model_dump(by_alias=True))
+        self.statusManager = Status(self.progressStatus)
 
-        in_path = os.path.join(directory, in_path, process_id)
-        out_path = os.path.join(directory, out_path, process_id)
+    async def preprocess(self) -> None:
+        """
+        Perform preprocessing steps: fetch XML files from GitHub, preprocess and push to GitHub.
+        """
+
+        if not os.path.exists(self.directory):
+            os.makedirs(self.directory)
+
+        in_path = os.path.join(self.directory, self.in_path, self.process_id)
+        out_path = os.path.join(self.directory, self.out_path, self.process_id)
 
         if not os.path.exists(in_path):
             os.makedirs(in_path)
         if not os.path.exists(out_path):
             os.makedirs(out_path)
 
-        print(f"Fetching files from {repo_name} in folder {repo_folder}...")
+        print(f"Fetching files from {self.repo_name} in folder {self.repo_folder}...")
         print(f"Paths: {in_path} -> {out_path}")
-        files_fetched, files_download_failed = self.github_manager.fetch_files(repo_name,
-                                                                               repo_folder,
+        files_fetched, files_download_failed = self.github_manager.fetch_files(self.repo_name,
+                                                                               self.repo_folder,
                                                                                ".xml",
                                                                                in_path)
         self.progressStatus = self.statusManager.initialize_status(files_fetched, files_download_failed)
         logger.info(
-            f"Preprocessor.preprocess(): Fetched {len(files_fetched)} files from {repo_name} in folder {repo_folder}.")
+            f"Preprocessor.preprocess(): Fetched {len(files_fetched)} \
+             files from {self.repo_name} in folder {self.repo_folder}."
+        )
         logger.info(f"Preprocessor.preprocess(): Starting preprocessing...")
         await self.preprocess_xml_file_list(
             files_fetched,
             in_path,
             out_path,
-            stop_on_fail,
-            abbrev,
-            crop
+            self.stop_on_fail,
+            self.abbrev,
+            self.crop
         )
 
     async def preprocess_xml_file_list(self,
