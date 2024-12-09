@@ -59,7 +59,10 @@ class Status:
         :param state_enum: the state of the preprocess.
         """
         if current_item_index is not None and current_item_name is not None:
-            self.state.progress = int((current_item_index / self.state.files_total) * 100)
+            if self.state.files_total > 0:
+                self.state.progress = int((current_item_index / self.state.files_total) * 100)
+            else:
+                self.state.progress = 0
 
             if success:
                 self.state.files_successful += 1
