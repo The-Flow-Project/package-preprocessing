@@ -22,7 +22,7 @@ class FetchImagesTest(unittest.TestCase):
         self.out_path: str = os.path.join(current_dir, '..', 'tmp_data')
         if not os.path.exists(self.out_path):
             os.makedirs(self.out_path)
-        self.image_downloader = ImageDownloader(uuid="test1234")
+        self.image_downloader = ImageDownloader()
         self.xml_files: List[str] = [os.path.join(in_path, filename) for filename in os.listdir(in_path) if
                                      filename.endswith(".xml")]
         self.dataset_size: int = 1 # len(self.xml_files)
