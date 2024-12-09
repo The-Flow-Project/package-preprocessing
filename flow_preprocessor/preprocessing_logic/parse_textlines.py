@@ -148,7 +148,10 @@ class Line:
         if 'abbrev' in self.custom_attributes.keys():
             abbreviations = self.custom_attributes['abbrev']
             for abbreviation in abbreviations:
-                if 'offset' not in abbreviation.keys() or 'length' not in abbreviation.keys() or 'expansion' not in abbreviation.keys():
+                if ('offset' not in abbreviation.keys() or
+                        'length' not in abbreviation.keys() or
+                        'expansion' not in abbreviation.keys()
+                ):
                     continue
                 offset = int(abbreviation['offset'])
                 length = int(abbreviation['length'])
@@ -212,7 +215,7 @@ class PageParser:
     Download images from Transkribus and eScriptorium via image URL
     """
 
-    def __init__(self, xml_file, process_id) -> None:
+    def __init__(self, xml_file) -> None:
         """
         initialise class parameters.
 
@@ -311,8 +314,12 @@ class PageParser:
         :return: creator tag as string.
         """
         creator = self.root.find(".//ns:Metadata/ns:Creator", namespaces=self.xmlns)
-        creator_text: Optional[str] = creator.text
-        logger.info(f'{self.__class__.__name__} - Got creator: {creator_text}')
+        if creator is not None and hasattr(creator, 'text'):
+            creator_text: Optional[str] = creator.text
+            logger.info(f'{self.__class__.__name__} - Got creator: {creator_text}')
+        else:
+            creator_text = ""
+            logger.info(f'{self.__class__.__name__} - No creator text found')
         return creator_text
 
     def get_image_url(self) -> str:
@@ -351,10 +358,14 @@ class PageParser:
             raise ValueError("text_line is None")
 
         unicode_text = text_line.find('.//ns:Unicode', namespaces=self.xmlns)
-        logger.info(f'{self.__class__.__name__} - Got Unicode text: {unicode_text.text}')
-        if unicode_text is not None and unicode_text.text is not None:
-            text: str = unicode_text.text.strip()
+        if unicode_text is not None and hasattr(unicode_text, 'text'):
+            logger.info(f'{self.__class__.__name__} - Got Unicode text: {unicode_text.text}')
+            if unicode_text.text is not None:
+                text: str = unicode_text.text.strip()
+            else:
+                text: str = ''
         else:
+            logger.info(f'{self.__class__.__name__} - No Unicode text found')
             text: str = ''
         return text
 
@@ -416,7 +427,7 @@ class PageParser:
             attributes[key].append(value_dict)
 
         return dict(attributes)
-    
+
     @staticmethod
     def get_line_id(text_line: et.Element) -> Union[str, None]:
         """

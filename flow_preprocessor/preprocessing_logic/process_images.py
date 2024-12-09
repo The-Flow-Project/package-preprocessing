@@ -17,12 +17,11 @@ class ImageProcessor:
     Process images from Transkribus and eScriptorium to extract text lines.
     """
 
-    def __init__(self, process_id: str) -> None:
+    def __init__(self) -> None:
         """
         Initialize class parameters.
 
         :param: self.failed_processing: images which could not be processed.
-        :arg: self.process_id: the unique identifier of the process.
         :param: self.logger: the logger instance.
         """
         self.failed_processing: List[str] = []
@@ -143,7 +142,7 @@ class ImageProcessor:
             cropped_image = Image.new("RGBA", cutout.size, (255, 255, 255, 255))
             cropped_image.paste(cutout, (0, 0), mask=cutout)
             cropped_image = cropped_image.convert('RGB')
-            self.logger.info(
+            logger.info(
                 f'{self.__class__.__name__} - Successfully extracted line {line_number} for image {image_path}'
             )
             new_image.close()

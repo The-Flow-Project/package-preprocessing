@@ -34,7 +34,6 @@ class Status:
         self.state.runtime = 0
         return PreprocessState(**self.state.model_dump(by_alias=True))
 
-
     def calculate_runtime(self) -> int:
         """
         Calculate runtime.
@@ -45,11 +44,11 @@ class Status:
         return int(delta.total_seconds())
 
     async def update_progress(self,
-                        current_item_index: int = None,
-                        current_item_name: str = None,
-                        success: bool = True,
-                        exception: Exception = None,
-                        state_enum: StateEnum = None) -> PreprocessState:
+                              current_item_index: int = None,
+                              current_item_name: str = None,
+                              success: bool = True,
+                              exception: Exception = None,
+                              state_enum: StateEnum = None) -> PreprocessState:
         """
         update progress when job is finished.
 
