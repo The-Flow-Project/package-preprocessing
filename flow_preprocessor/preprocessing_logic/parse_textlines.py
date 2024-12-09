@@ -398,7 +398,8 @@ class PageParser:
         """
         attributes = defaultdict(list)
         pattern = r"(\w+)\s*\{([^}]+)\}"
-        matches = re.findall(pattern, text_line.get('custom'))
+        custom_attr = text_line.get('custom', '')
+        matches = re.findall(pattern, custom_attr)
 
         for m in matches:
             key = m[0]
