@@ -17,7 +17,7 @@ class ProcessImagesTest(unittest.TestCase):
             os.makedirs(self.out_path)
         self.image_transkribus: str = os.path.join(self.in_path, "1155140_0001_47389007.JPG")
         self.image_escriptorium: str = os.path.join(self.in_path, "1_0054.png")
-        self.imageProcessor = ImageProcessor(uuid="test1234")
+        self.imageProcessor = ImageProcessor()
         self.line_escriptorium = Line('0',
                                       "Peter Angerfelder und Richter und auch",
                                       "1_0054.png",
@@ -30,7 +30,7 @@ class ProcessImagesTest(unittest.TestCase):
                                        Coordinate(959, 326), Coordinate(905, 385), Coordinate(877, 355)],
                                       [Coordinate(877, 306), Coordinate(1074, 309), Coordinate(1272, 318),
                                        Coordinate(1469, 324), Coordinate(1667, 341), Coordinate(2064, 346)],
-                                      []
+                                      {"abbrev": []}
                                       )
 
         self.line_transkribus = Line('0',
@@ -58,20 +58,24 @@ class ProcessImagesTest(unittest.TestCase):
                                       Coordinate(756, 381), Coordinate(792, 384), Coordinate(828, 386),
                                       Coordinate(864, 388), Coordinate(900, 390), Coordinate(936, 392),
                                       Coordinate(972, 393), Coordinate(1008, 394), Coordinate(1045, 395)],
-                                     []
+                                     {"abbrev": []}
                                      )
 
     @patch('flow_preprocessor.preprocessing_logic.process_images.Image.open')
-    def test_load_image(self, mock_open):
-        image_file_extensions = ('.jpg', '.jpeg', '.png', '.bmp', '.gif')
-        if not self.image_transkribus.lower().endswith(image_file_extensions):
-            self.fail(f"Input file '{self.image_transkribus}' is not an image file")
-
+    @patch('flow_preprocessor.preprocessing_logic.process_images.ImageProcessor._correct_orientation')
+    def test_load_image(self, mock_correct_orientation, mock_open):
         mock_image = MagicMock()
-        mock_open.return_value.__enter__.return_value = mock_image
-        expected_image = mock_image
+        mock_open.return_value = mock_image
+
+        mock_corrected_image = MagicMock()
+        mock_correct_orientation.return_value = mock_corrected_image
+
         result = self.imageProcessor._load_image(self.image_transkribus)
-        self.assertEqual(result, expected_image)
+
+        mock_correct_orientation.assert_called_once_with(mock_image)
+
+        self.assertEqual(result, mock_corrected_image)
+
         mock_open.assert_called_once_with(self.image_transkribus)
 
     def test_extract_line_from_image_transkribus(self):
