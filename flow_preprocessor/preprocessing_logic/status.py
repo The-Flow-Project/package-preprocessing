@@ -25,7 +25,7 @@ class Status:
 
         :param files_fetched: the list of files fetched.
         :param files_download_failed: the list of files that failed to download.
-        :return: the status of the preprocess.
+        :return: the status of the preprocessing.
         """
         self.state.files_total = len(files_fetched)
         self.state.files_failed_download = len(files_download_failed)
@@ -56,7 +56,7 @@ class Status:
         :param current_item_name: the name of the item currently being processed.
         :param success: whether the item was processed successfully.
         :param exception: the exception that was raised if success is False.
-        :param state_enum: the state of the preprocess.
+        :param state_enum: the state of the preprocessing.
         """
         if current_item_index is not None and current_item_name is not None:
             if self.state.files_total > 0:
@@ -70,7 +70,7 @@ class Status:
             else:
                 self.state.files_failed_process += 1
                 self.state.filenames_failed_process.append(current_item_name)
-                if exception is ImageFetchException:
+                if isinstance(exception, ImageFetchException):
                     self.state.files_failed_download += 1
                     self.state.filenames_failed_download.append(current_item_name)
 
