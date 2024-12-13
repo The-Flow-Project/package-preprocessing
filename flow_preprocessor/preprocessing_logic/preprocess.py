@@ -36,7 +36,7 @@ class Preprocessor:
             callback_preprocess: Callable[[dict], Coroutine[Any, Any, None]] = None,
             crop: bool = False,
             abbrev: bool = False,
-            stop_on_fail: bool = False,
+            stop_on_fail: bool = True,
             directory: str = "tmp",
             in_path: str = "",
             out_path: str = "preprocessed",
