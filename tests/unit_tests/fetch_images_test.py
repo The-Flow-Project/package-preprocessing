@@ -2,6 +2,9 @@ import os
 import unittest
 from typing import List
 from unittest.mock import patch, MagicMock
+
+from build.lib.flow_preprocessor.exceptions.exceptions import ImageProcessException
+from flow_preprocessor.exceptions.exceptions import ImageFetchException
 from flow_preprocessor.preprocessing_logic.fetch_images import ImageDownloader
 from flow_preprocessor.preprocessing_logic.parse_textlines import Metadata, Page
 
@@ -34,7 +37,8 @@ class FetchImagesTest(unittest.TestCase):
                                               "https://escriptorium.flow-project.net/media/documents/37/1_0054.png")
         self.page_escriptorium = Page("1_0054.png", [], self.metadata_escriptorium)
 
-    def test_fetch_images(self) -> None:
+    @patch.object(ImageDownloader, 'fetch_image')
+    def test_fetch_images(self, mock_fetch_image) -> None:
         """
         Test case to ensure that images are fetched correctly.
 
@@ -43,13 +47,65 @@ class FetchImagesTest(unittest.TestCase):
         specified output path. It checks if the number of processed images matches
         the number of input XML files, indicating successful processing.
         """
-        self.image_downloader.fetch_image(self.page_transkribus, self.out_path)
-        failed_downloads: List[str] = self.image_downloader.get_failed_downloads()
-        failed_processing: List[str] = self.image_downloader.get_failed_processing()
-        successes: List[str] = self.image_downloader.get_successes()
-        processed_dataset_size: int = len(failed_downloads) + len(failed_processing) + len(successes)
+        pages = [self.page_transkribus, self.page_escriptorium]
 
-        self.assertEqual(self.dataset_size, processed_dataset_size)
+        # Case 1: Both succeed
+        mock_fetch_image.side_effect = [None, None]
+        for page in pages:
+            try:
+                self.image_downloader.fetch_image(page, self.out_path)
+                self.image_downloader.successes.append(page.image_file_name)
+            except ImageFetchException:
+                self.image_downloader.failed_downloads.append(page.image_file_name)
+            except ImageProcessException:
+                self.image_downloader.failed_processing.append(page.image_file_name)
+
+        self.assertEqual(len(self.image_downloader.successes), 2)
+        self.assertEqual(len(self.image_downloader.failed_downloads), 0)
+        self.assertEqual(len(self.image_downloader.failed_processing), 0)
+
+        # Reset state for the next case
+        self.image_downloader.successes.clear()
+        self.image_downloader.failed_downloads.clear()
+        self.image_downloader.failed_processing.clear()
+
+        # Case 2: One succeeds, one fails
+        mock_fetch_image.side_effect = [None, ImageFetchException("Simulated failure")]
+        for page in pages:
+            try:
+                self.image_downloader.fetch_image(page, self.out_path)
+                self.image_downloader.successes.append(page.image_file_name)
+            except ImageFetchException:
+                self.image_downloader.failed_downloads.append(page.image_file_name)
+            except ImageProcessException:
+                self.image_downloader.failed_processing.append(page.image_file_name)
+
+        self.assertEqual(len(self.image_downloader.successes), 1)
+        self.assertEqual(len(self.image_downloader.failed_downloads), 1)
+        self.assertEqual(len(self.image_downloader.failed_processing), 0)
+
+        # Reset state for the next case
+        self.image_downloader.successes.clear()
+        self.image_downloader.failed_downloads.clear()
+        self.image_downloader.failed_processing.clear()
+
+        # Case 3: Both fail
+        mock_fetch_image.side_effect = [
+            ImageFetchException("Simulated failure"),
+            ImageFetchException("Simulated failure"),
+        ]
+        for page in pages:
+            try:
+                self.image_downloader.fetch_image(page, self.out_path)
+                self.image_downloader.successes.append(page.image_file_name)
+            except ImageFetchException:
+                self.image_downloader.failed_downloads.append(page.image_file_name)
+            except ImageProcessException:
+                self.image_downloader.failed_processing.append(page.image_file_name)
+
+        self.assertEqual(len(self.image_downloader.successes), 0)
+        self.assertEqual(len(self.image_downloader.failed_downloads), 2)
+        self.assertEqual(len(self.image_downloader.failed_processing), 0)
 
     @patch('flow_preprocessor.preprocessing_logic.fetch_images.requests.get')
     def test_request_image_via_url(self, mock_get: MagicMock):
