@@ -2,6 +2,9 @@ import asyncio
 import os
 import unittest
 from typing import List
+from unittest.mock import patch
+
+from flow_preprocessor.exceptions.exceptions import ImageFetchException
 from flow_preprocessor.preprocessing_logic.preprocess import Preprocessor
 
 
@@ -30,11 +33,33 @@ class PreprocessTest(unittest.TestCase):
         asyncio.run(self.preprocessor.preprocess_xml_file_list(self.xml_files, self.in_path, self.out_path))
 
     def test_preprocess_crop_true(self):
-        asyncio.run(self.preprocessor.preprocess_xml_file_list(self.xml_files, self.in_path, self.out_path, crop=True))
+        asyncio.run(self.preprocessor.preprocess_xml_file_list(self.xml_files,
+                                                               self.in_path,
+                                                               self.out_path,
+                                                               crop=True,
+                                                               stop_on_fail=False))
 
     def test_preprocess_abbrev_true(self):
         asyncio.run(
-            self.preprocessor.preprocess_xml_file_list(self.xml_files, self.in_path, self.out_path, abbrev=True))
+            self.preprocessor.preprocess_xml_file_list(self.xml_files,
+                                                       self.in_path,
+                                                       self.out_path,
+                                                       abbrev=True,
+                                                       stop_on_fail=False))
+
+    def test_preprocess_with_failure_due_to_invalid_file(self):
+        # Simulate invalid XML files that would lead to an ImageFetchException
+        invalid_xml_files = ["invalid_file.xml"]
+
+        with patch(
+                'flow_preprocessor.preprocessing_logic.preprocess.Preprocessor.preprocess_xml_file_list') as mock_preprocess:
+            mock_preprocess.side_effect = ImageFetchException("Simulated failure during file processing.")
+
+            with self.assertRaises(ImageFetchException) as context:
+                asyncio.run(self.preprocessor.preprocess_xml_file_list(
+                    invalid_xml_files, self.in_path, self.out_path, stop_on_fail=True))
+
+            self.assertIn("Simulated failure during file processing", str(context.exception))
 
     def tearDown(self) -> None:
         """
