@@ -30,7 +30,10 @@ class PreprocessTest(unittest.TestCase):
         asyncio.run(self.preprocessor.preprocess())
 
     def test_preprocess_crop_false(self):
-        asyncio.run(self.preprocessor.preprocess_xml_file_list(self.xml_files, self.in_path, self.out_path))
+        asyncio.run(self.preprocessor.preprocess_xml_file_list(self.xml_files,
+                                                               self.in_path,
+                                                               self.out_path,
+                                                               stop_on_fail=False))
 
     def test_preprocess_crop_true(self):
         asyncio.run(self.preprocessor.preprocess_xml_file_list(self.xml_files,
