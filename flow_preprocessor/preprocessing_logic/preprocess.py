@@ -36,7 +36,7 @@ class Preprocessor:
             callback_preprocess: Callable[[dict], Coroutine[Any, Any, None]] = None,
             crop: bool = False,
             abbrev: bool = False,
-            stop_on_fail: bool = True,
+            stop_on_fail: bool = False,
             directory: str = "tmp",
             in_path: str = "",
             out_path: str = "preprocessed",
@@ -222,7 +222,13 @@ class Preprocessor:
         lines_per_page = page_parser.process_lines_from_xml_file()
         page = Page(file_name, lines_per_page, metadata)
         gt_dict = {}
-        self.image_downloader.fetch_image(page, in_path)
+        try:
+            self.image_downloader.fetch_image(page, in_path)
+        except ImageFetchException as e:
+            logger.error(f"Error fetching image for file {file_name}: {e}")
+            if self.stop_on_fail:
+                raise
+            return
         for line in page.lines:
             line_name = line.get_output_filename()
             if not abbrev:

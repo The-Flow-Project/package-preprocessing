@@ -6,7 +6,7 @@ from typing import List, Optional
 from lxml import etree as et
 import requests
 
-from flow_preprocessor.exceptions.exceptions import ImageFetchException
+from flow_preprocessor.exceptions.exceptions import ImageFetchException, ImageProcessException
 from flow_preprocessor.preprocessing_logic.parse_textlines import Page
 from flow_preprocessor.utils.logging.preprocessing_logger import logger
 
@@ -72,28 +72,22 @@ class ImageDownloader:
                 exc_info=True
             )
             raise ImageFetchException('Failed to download file %s.', e)
-        except FileNotFoundError as e:
-            logger.error(
-                f'{self.__class__.__name__} - XML file not found: {page}',
-                exc_info=True
-            )
-            raise ImageFetchException('XML file not found: %s', e)
         except (et.XMLSyntaxError, et.ParseError, IndexError, TypeError, ValueError) as e:
+            if image_filename is not None:
+                self.failed_processing.append(image_filename)
             logger.error(
                 f'{self.__class__.__name__} - Error parsing file {page}',
                 exc_info=True
             )
+            raise ImageProcessException('Error parsing file %s: %s', e)
+        except Exception as e:
             if image_filename is not None:
                 self.failed_processing.append(image_filename)
-            raise ImageFetchException('Error parsing file %s: %s', e)
-        except Exception as e:
             logger.error(
                 f'{self.__class__.__name__} - An unexpected error occurred for file {page}',
                 exc_info=True
             )
-            if image_filename is not None:
-                self.failed_processing.append(image_filename)
-            raise ImageFetchException('An unexpected error occurred for file %s: %s', e)
+            raise Exception('An unexpected error occurred for file %s: %s', e)
 
     def get_failed_downloads(self) -> List[str]:
         """
