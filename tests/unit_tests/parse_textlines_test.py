@@ -1,5 +1,8 @@
 import os
 import unittest
+from unittest.mock import patch
+
+from flow_preprocessor.exceptions.exceptions import ParseTextLinesException
 from flow_preprocessor.preprocessing_logic.parse_textlines import Line, PageParser, Metadata, Coordinate, Page
 from lxml import etree as et
 
@@ -227,6 +230,21 @@ class ParseTextLinesTest(unittest.TestCase):
         result = self.line_transkribus_with_abbreviations.get_line_text(expand_abbrev=True)
         expected_output = "Int erste quam den Steden en breff van dem hertogen van Sleswik"
         self.assertEqual(expected_output, result)
+
+    def test_parse_xml_file_with_invalid_xml(self):
+        invalid_xml = "<invalid><xml></invalid>"
+
+        with patch('builtins.open', unittest.mock.mock_open(read_data=invalid_xml)):
+            with self.assertRaises(ParseTextLinesException):
+                self.parser_transkribus.parse_xml_file("invalid_file.xml")
+
+        self.assertIn("invalid_file.xml", self.parser_transkribus.failed_processing)
+
+    def test_parse_xml_file_with_nonexistent_file(self):
+        with self.assertRaises(ParseTextLinesException):
+            self.parser_transkribus.parse_xml_file("nonexistent_file.xml")
+
+        self.assertIn("nonexistent_file.xml", self.parser_transkribus.failed_processing)
 
 
 if __name__ == '__main__':
