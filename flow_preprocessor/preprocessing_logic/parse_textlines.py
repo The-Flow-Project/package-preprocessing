@@ -227,12 +227,42 @@ class PageParser:
         :param self.xmlns: namespace declaration.
         :param self.failed_processing: list of images that could not be processed.
         """
-        self.tree = et.parse(xml_file)
-        self.root = self.tree.getroot()
-        self.namespace_uri = self.root.tag.split('}')[0][1:]
-        self.namespace = {'prefix': self.namespace_uri}
-        self.xmlns = {'ns': self.namespace_uri}
         self.failed_processing = []
+        self.namespace_uri = None
+        self.namespace = None
+        self.xmlns = None
+        self.tree = None
+        self.root = None
+        self.parse_xml_file(xml_file)
+
+    def parse_xml_file(self, xml_file):
+        try:
+            self.tree = et.parse(xml_file)
+            self.root = self.tree.getroot()
+            self.namespace_uri = self.root.tag.split('}')[0][1:]
+            self.namespace = {'prefix': self.namespace_uri}
+            self.xmlns = {'ns': self.namespace_uri}
+        except (et.XMLSyntaxError, et.ParseError) as e:
+            self.failed_processing.append(xml_file)
+            logger.error(
+                f'{self.__class__.__name__} - Error parsing file {xml_file}',
+                exc_info=True,
+            )
+            raise ParseTextLinesException(f'Error parsing file {xml_file}: {e}')
+        except FileNotFoundError as e:
+            self.failed_processing.append(xml_file)
+            logger.error(
+                f'{self.__class__.__name__} - XML file not found: {xml_file}',
+                exc_info=True,
+            )
+            raise ParseTextLinesException(f'XML file not found: {xml_file}', e)
+        except Exception as e:
+            self.failed_processing.append(xml_file)
+            logger.error(
+                f'{self.__class__.__name__} - An unexpected error occurred for file {xml_file}',
+                exc_info=True,
+            )
+            raise ParseTextLinesException(f'An unexpected error occurred for file {xml_file}: {e}')
 
     def process_lines_from_xml_file(self) -> List[Line]:
         """
