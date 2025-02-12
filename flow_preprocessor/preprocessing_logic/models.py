@@ -1,17 +1,26 @@
+"""
+Models to use for the preprocessing package - mainly the status model
+"""
 from datetime import datetime
-
-from pydantic import BaseModel, Field
 from typing import Optional, List
 import enum
 
+from pydantic import BaseModel, Field
+
 
 class StateEnum(enum.Enum):
+    """
+    List of states of the process
+    """
     IN_PROGRESS = "in_progress"
     FAILED = "failed"
     DONE = "done"
 
 
 class PreprocessState(BaseModel):
+    """
+    The state of a preprocessing job
+    """
     process_id: str = Field(alias="process_id",
                             description="The uniqueid of the preprocess status.",
                             title="ID")
@@ -38,21 +47,6 @@ class PreprocessState(BaseModel):
                                alias="stop_on_fail",
                                description="Whether to stop processing on failure.",
                                title="Stop-On-Fail")
-    directory: str = Field(default="tmp",
-                           alias="directory",
-                           description="Directory to save the files temporarily to.",
-                           title="Directory",
-                           examples=["tmp"])
-    in_path: str = Field(default="fetched",
-                         alias="in_path",
-                         description="Path to save the fetched files.",
-                         title="In-Path",
-                         examples=["fetched"])
-    out_path: str = Field(default="preprocessed",
-                          alias="out_path",
-                          description="Path to save the preprocessed files.",
-                          title="Out-Path",
-                          examples=["preprocessed"])
     progress: int = Field(alias="progress",
                           description="The progress of the preprocess status.",
                           title="Progress",
@@ -89,7 +83,16 @@ class PreprocessState(BaseModel):
                                                       description="The names of the files that failed downloading.",
                                                       title="Filenames-Failed-Download",
                                                       default=[])
+    line_images: Optional[List] = Field(alias="line_images",
+                                        description="The names of the lines images processed.",
+                                        title="Filenames-Line-Images-Processed",
+                                        default=[])
     runtime: Optional[int] = Field(alias="runtime",
                                    description="The runtime of the preprocess status.",
                                    title="Runtime",
                                    default=0)
+    segment: Optional[bool] = Field(alias="segment",
+                                    description="Whether the images have to be segmented before processing.",
+                                    title="Segment",
+                                    default=False
+                                    )

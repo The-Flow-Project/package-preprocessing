@@ -1,7 +1,11 @@
+"""
+Script to parse the lines of an XML file
+"""
 # ===============================================================================
 # IMPORT STATEMENTS
 # ===============================================================================
 import re
+import os
 from typing import List, Dict, Optional, Union
 from collections import defaultdict
 
@@ -135,9 +139,9 @@ class Line:
         """
         if expand_abbrev is False:
             return self.line_text
-        else:
-            expanded_line = self.expand_abbreviations()
-            return expanded_line
+
+        expanded_line = self.expand_abbreviations()
+        return expanded_line
 
     def expand_abbreviations(self) -> str:
         """
@@ -215,10 +219,12 @@ class PageParser:
     Download images from Transkribus and eScriptorium via image URL
     """
 
-    def __init__(self, xml_file) -> None:
+    def __init__(self, xml_file: str, segment: bool = False) -> None:
         """
         initialise class parameters.
 
+        :param xml_file: the xml file path.
+        :param segment: wether to segment or not.
         :param self.logger: logger instance.
         :param self.tree: parse XML parse tree.
         :param self.root: root of XML parse tree.
@@ -233,36 +239,61 @@ class PageParser:
         self.xmlns = None
         self.tree = None
         self.root = None
-        self.parse_xml_file(xml_file)
+        self.xml_filename = os.path.basename(xml_file)
+        self.parse_xml_file(xml_file, segment)
 
-    def parse_xml_file(self, xml_file):
+    def parse_xml_file(self, xml_file: str, segment: bool = False) -> None:
+        """
+        Parse XML file.
+        """
         try:
             self.tree = et.parse(xml_file)
             self.root = self.tree.getroot()
             self.namespace_uri = self.root.tag.split('}')[0][1:]
             self.namespace = {'prefix': self.namespace_uri}
             self.xmlns = {'ns': self.namespace_uri}
+
+            # TODO: Write Segmenter package
+            """
+            if segment:
+                existing_segmentation = self.check_segmentation()
+                if existing_segmentation == 'ground_truth':
+                    pass
+                elif existing_segmentation == 'segmented':
+                    segmenter = Segmenter('linemasks')
+                    self.root = segmenter.segment(self.root)
+                else:
+                    segmenter = Segmenter('yolo')
+                    self.root = segmenter.segment(self.root)
+            """
+
         except (et.XMLSyntaxError, et.ParseError) as e:
             self.failed_processing.append(xml_file)
             logger.error(
-                f'{self.__class__.__name__} - Error parsing file {xml_file}',
+                '%s - Error parsing file %s',
+                self.__class__.__name__,
+                xml_file,
                 exc_info=True,
             )
-            raise ParseTextLinesException(f'Error parsing file {xml_file}: {e}')
+            raise ParseTextLinesException(f'Error parsing file {xml_file}: {e}') from e
         except FileNotFoundError as e:
             self.failed_processing.append(xml_file)
             logger.error(
-                f'{self.__class__.__name__} - XML file not found: {xml_file}',
+                '%s - XML file not found: %s',
+                self.__class__.__name__,
+                xml_file,
                 exc_info=True,
             )
-            raise ParseTextLinesException(f'XML file not found: {xml_file}', e)
+            raise ParseTextLinesException(f'XML file not found: {xml_file}: {e}') from e
         except Exception as e:
             self.failed_processing.append(xml_file)
             logger.error(
-                f'{self.__class__.__name__} - An unexpected error occurred for file {xml_file}',
+                '%s - An unexpected error occurred for file: %s',
+                self.__class__.__name__,
+                xml_file,
                 exc_info=True,
             )
-            raise ParseTextLinesException(f'An unexpected error occurred for file {xml_file}: {e}')
+            raise ParseTextLinesException(f'An unexpected error occurred for file {xml_file}: {e}') from e
 
     def process_lines_from_xml_file(self) -> List[Line]:
         """
@@ -272,7 +303,7 @@ class PageParser:
         """
         line_document = None
         try:
-            line_document = self.get_image_file_name()
+            line_document = self.xml_filename
             line_list: List[Line] = []
             for text_line in self.root.findall(".//ns:TextLine", namespaces=self.xmlns):
                 line_number = self.get_line_id(text_line)
@@ -282,8 +313,11 @@ class PageParser:
                 custom_attributes = self.get_custom_attribute(text_line)
                 if line_text == '' or line_coordinates == [] or line_baseline_points == []:
                     logger.warning(
-                        f'{self.__class__.__name__} - Skipping line {line_number} in file {line_document} as it is '
-                        f'empty or has no coordinates or baseline points.'
+                        '%s - Skipping line %d in file %s as it is '
+                        'empty or has no coordinates or baseline points.',
+                        self.__class__.__name__,
+                        line_number,
+                        line_document,
                     )
                     continue
                 line = Line(line_number,
@@ -295,27 +329,37 @@ class PageParser:
                 line_list.append(line)
         except FileNotFoundError as e:
             logger.error(
-                f'{self.__class__.__name__} - XML file not found: {line_document}',
+                '%s - XML file not found: %s',
+                self.__class__.__name__,
+                line_document,
                 exc_info=True,
             )
             self.failed_processing.append(line_document)
-            raise ParseTextLinesException('XML file not found:  %s', line_document, e)
+            raise ParseTextLinesException(f'XML file not found:  {line_document}: {e}') from e
         except (et.XMLSyntaxError, et.ParseError, IndexError, TypeError, ValueError) as e:
             logger.error(
-                f'{self.__class__.__name__} - Error parsing file {line_document}',
+                '%s - Error parsing file %s',
+                self.__class__.__name__,
+                line_document,
                 exc_info=True,
             )
             self.failed_processing.append(line_document)
-            raise ParseTextLinesException(f'Error parsing file {line_document}: {e}')
+            raise ParseTextLinesException(f'Error parsing file {line_document}: {e}') from e
         except Exception as e:
             logger.error(
-                f'{self.__class__.__name__} - An unexpected error occurred for file {line_document}',
+                '%s - An unexpected error occurred for file %s',
+                self.__class__.__name__,
+                line_document,
                 exc_info=True,
             )
             self.failed_processing.append(line_document)
-            raise ParseTextLinesException('An unexpected error occurred for file %s: %s', line_document, e)
+            raise ParseTextLinesException(f'An unexpected error occurred for file {line_document}: {e}') from e
 
-        logger.info(f'{self.__class__.__name__} - Successfully processed lines in file {line_document}')
+        logger.info(
+            '%s - Successfully processed lines in file %s',
+            self.__class__.__name__,
+            line_document,
+        )
         return line_list
 
     def get_metadata(self) -> Metadata:
@@ -346,10 +390,10 @@ class PageParser:
         creator = self.root.find(".//ns:Metadata/ns:Creator", namespaces=self.xmlns)
         if creator is not None and hasattr(creator, 'text'):
             creator_text: Optional[str] = creator.text
-            logger.info(f'{self.__class__.__name__} - Got creator: {creator_text}')
+            logger.info('%s - Got creator: %s', self.__class__.__name__, creator_text)
         else:
             creator_text = ""
-            logger.info(f'{self.__class__.__name__} - No creator text found')
+            logger.info('%s - No creator text found', self.__class__.__name__)
         return creator_text
 
     def get_image_url(self) -> str:
@@ -371,10 +415,14 @@ class PageParser:
                 "ns:Metadata/ns:TranskribusMetadata",
                 namespaces=self.xmlns
             )
-            if type(transkribus_metadata) is list:
+            if isinstance(transkribus_metadata, list):
                 transkribus_metadata = transkribus_metadata[0]
             image_url = transkribus_metadata.get('imgUrl')
-        logger.info(f'{self.__class__.__name__} - Got image URL: {image_url}')
+        logger.info(
+            '%s - Got image URL: %s',
+            self.__class__.__name__,
+            image_url,
+        )
         return image_url
 
     def get_line_text_string(self, text_line: et.Element) -> str:
@@ -387,15 +435,15 @@ class PageParser:
         if text_line is None:
             raise ValueError("text_line is None")
 
-        unicode_text = text_line.find('.//ns:Unicode', namespaces=self.xmlns)
+        unicode_text = text_line.find('./ns:TextEquiv/ns:Unicode', namespaces=self.xmlns)
         if unicode_text is not None and hasattr(unicode_text, 'text'):
-            logger.info(f'{self.__class__.__name__} - Got Unicode text: {unicode_text.text}')
+            logger.info('%s - Got Unicode text: %s', self.__class__.__name__, unicode_text.text)
             if unicode_text.text is not None:
                 text: str = unicode_text.text.strip()
             else:
                 text: str = ''
         else:
-            logger.info(f'{self.__class__.__name__} - No Unicode text found')
+            logger.info('%s - No Unicode text found', self.__class__.__name__)
             text: str = ''
         return text
 
@@ -409,7 +457,7 @@ class PageParser:
         coord = text_line.find(".//ns:Coords", namespaces=self.xmlns)
         points: str = coord.attrib.get("points")
 
-        # self.logger.info(f'{self.__class__.__name__} - Got coordinates: {points}')
+        # self.logger.info('%s - Got coordinates: %s', self.__class__.__name__, points)
         points_list: List[str] = points.split()
         coordinates: List[Coordinate] = [Coordinate(int(p.split(",")[0]), int(p.split(",")[1])) for p in points_list]
         return coordinates
@@ -468,6 +516,21 @@ class PageParser:
         """
         return str(text_line.get('id'))
 
+    def check_segmentation(self) -> Union[str, None]:
+        """
+        Check, if the xml-file is segmented and if it contains text
+
+        :return: Type of segmentation or None.
+        """
+        text_lines = self.root.findall("ns:TextLine", namespaces=self.xmlns)
+        unicode_tags = self.root.xpath('.//ns:TextLine/ns:TextEquiv/ns:Unicode[text()]', namespaces=self.xmlns)
+
+        if text_lines:
+            if unicode_tags:
+                return 'ground_truth'
+            return 'segmented'
+        return None
+
     def get_failed_processing(self) -> List[str]:
         """
         Retrieve the names of the XML files which failed during download.
@@ -477,6 +540,9 @@ class PageParser:
         return self.failed_processing
 
     def get_page(self):
+        """
+        Get the Page-object from the XML file.
+        """
         return Page(
             self.get_image_file_name(),
             self.process_lines_from_xml_file(),

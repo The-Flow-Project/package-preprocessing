@@ -1,8 +1,12 @@
+"""
+Status class
+"""
+
 # ===============================================================================
 # IMPORT STATEMENTS
 # ===============================================================================
 from datetime import datetime
-from typing import List
+from typing import List, Any
 from flow_preprocessor.preprocessing_logic.models import PreprocessState, StateEnum
 from flow_preprocessor.exceptions.exceptions import ImageFetchException
 
@@ -11,6 +15,12 @@ from flow_preprocessor.exceptions.exceptions import ImageFetchException
 # CLASS
 # ===============================================================================
 class Status:
+    """
+    Status class to keep overview over the preprocessing status.
+
+    :param state: the preprocessing state in this moment.
+    """
+
     def __init__(self, state: PreprocessState) -> None:
         """
         initialise class parameters.
@@ -32,6 +42,7 @@ class Status:
         self.state.filenames_failed_download = files_download_failed
         self.state.state = StateEnum.IN_PROGRESS
         self.state.runtime = 0
+        self.state.line_images = []
         return PreprocessState(**self.state.model_dump(by_alias=True))
 
     def calculate_runtime(self) -> int:
@@ -48,7 +59,7 @@ class Status:
                               current_item_name: str = None,
                               success: bool = True,
                               exception: Exception = None,
-                              state_enum: StateEnum = None) -> PreprocessState:
+                              state_enum: StateEnum = None, ) -> PreprocessState:
         """
         update progress when job is finished.
 
@@ -78,5 +89,16 @@ class Status:
                 self.state.state = state_enum
 
         self.state.runtime = self.calculate_runtime()
+
+        return PreprocessState(**self.state.model_dump(by_alias=True))
+
+    def update_image_list(self, new_line_images: Any[str, List]) -> PreprocessState:
+        """
+        Update the image list.
+
+        :param new_line_images: the new line image list.
+        """
+        if new_line_images is not None:
+            self.state.line_images.append(new_line_images)
 
         return PreprocessState(**self.state.model_dump(by_alias=True))

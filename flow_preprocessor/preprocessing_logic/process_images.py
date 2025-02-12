@@ -1,3 +1,7 @@
+"""
+Implementation of image processing
+"""
+
 # ===============================================================================
 # IMPORT STATEMENTS
 # ===============================================================================
@@ -72,7 +76,11 @@ class ImageProcessor:
         :return: Line as PILImage object.
         """
         try:
-            logger.info(f'{self.__class__.__name__} - baseline_points: {baseline_points}')
+            logger.info(
+                '%s - baseline_points: %s',
+                self.__class__.__name__,
+                baseline_points,
+            )
 
             y_max_base = Coordinate.max_y(baseline_points)
             x_min_coord = Coordinate.min_x(coordinates)
@@ -88,26 +96,49 @@ class ImageProcessor:
             image_line = img.crop((x_min_coord, y_min_coord, x_max_coord, y_max_coord))
             img.close()
             logger.info(
-                f'{self.__class__.__name__} - Successfully extracted line {line_number} for image {in_path}')
+                '%s - Successfully extracted line %s for image %s',
+                self.__class__.__name__,
+                line_number,
+                in_path,
+            )
             return image_line
         except FileNotFoundError as e:
-            logger.error(f'{self.__class__.__name__} - File not found: {in_path}, {str(e)}')
+            logger.error(
+                '%s - File not found: %s, %s',
+                self.__class__.__name__,
+                in_path,
+                e,
+            )
             self.failed_processing.append(in_path)
-            raise ImageProcessException('File not found: %s %s:', in_path, e)
+            raise ImageProcessException(f'File not found: {in_path} {e}') from e
         except PIL.UnidentifiedImageError as e:
             logger.error(
-                f'{self.__class__.__name__} - The image cannot be opened and identified for file {in_path}, {str(e)}')
+                '%s - The image cannot be opened and identified for file %s, %s',
+                self.__class__.__name__,
+                in_path,
+                e,
+            )
             self.failed_processing.append(in_path)
-            raise ImageProcessException('The image cannot be opened and identified for file %s %s', in_path, e)
+            raise ImageProcessException(f'The image cannot be opened and identified for file {in_path}, {e}') from e
         except ValueError as e:
             logger.error(
-                f'{self.__class__.__name__} - Wrong value provided for file {in_path} on line {line_number}, {str(e)}')
+                '%s - Wrong value provided for file %s on line %d, %s',
+                self.__class__.__name__,
+                in_path,
+                line_number,
+                e,
+            )
             self.failed_processing.append(in_path)
-            raise ImageProcessException('Wrong value provided for file %s %s', in_path, str(e))
+            raise ImageProcessException(f'Wrong value provided for file {in_path}, {e}') from e
         except TypeError as e:
-            logger.error(f'{self.__class__.__name__} - Wrong type provided for file {in_path}, {str(e)}')
+            logger.error(
+                '%s - Wrong type provided for file %s, %s',
+                self.__class__.__name__,
+                in_path,
+                e,
+            )
             self.failed_processing.append(in_path)
-            raise ImageProcessException('Wrong type provided for file %s %s', in_path, str(e))
+            raise ImageProcessException(f'Wrong type provided for file {in_path}, {e}') from e
 
     def crop_line_from_image(self,
                              coordinates: List[Tuple[float, float]],
@@ -143,36 +174,45 @@ class ImageProcessor:
             cropped_image.paste(cutout, (0, 0), mask=cutout)
             cropped_image = cropped_image.convert('RGB')
             logger.info(
-                f'{self.__class__.__name__} - Successfully extracted line {line_number} for image {image_path}'
+                '%s - Successfully extracted line %d for image %s',
+                self.__class__.__name__,
+                line_number,
+                image_path,
             )
             new_image.close()
             img.close()
             return cropped_image
         except FileNotFoundError as e:
-            logger.error(f'{self.__class__.__name__} - File not found: {image_path}', exc_info=True)
+            logger.error('%s - File not found: %s', self.__class__.__name__, image_path, exc_info=True)
             self.failed_processing.append(image_path)
-            raise ImageProcessException('File not found: %s %s:', image_path, e)
+            raise ImageProcessException(f'File not found:{image_path}, {e}') from e
         except PIL.UnidentifiedImageError as e:
             logger.error(
-                f'{self.__class__.__name__} - The image cannot be opened and identified for file {image_path}',
+                '%s - The image cannot be opened and identified for file %s',
+                self.__class__.__name__,
+                image_path,
                 exc_info=True,
             )
             self.failed_processing.append(image_path)
-            raise ImageProcessException('The image cannot be opened and identified for file %s %s', image_path, e)
+            raise ImageProcessException(f'The image cannot be opened and identified for file {image_path}, {e}') from e
         except ValueError as e:
             logger.error(
-                f'{self.__class__.__name__} - Wrong value provided for file {image_path}',
+                '%s - Wrong value provided for file %s',
+                self.__class__.__name__,
+                image_path,
                 exc_info=True,
             )
             self.failed_processing.append(image_path)
-            raise ImageProcessException('Wrong value provided for file %s %s', image_path, str(e))
+            raise ImageProcessException(f'Wrong value provided for file {image_path}, {e}') from e
         except TypeError as e:
             logger.error(
-                f'{self.__class__.__name__} - Wrong type provided for file {image_path}',
+                '%s - Wrong type provided for file %s',
+                self.__class__.__name__,
+                image_path,
                 exc_info=True,
             )
             self.failed_processing.append(image_path)
-            raise ImageProcessException('Wrong type provided for file %s %s', image_path, str(e))
+            raise ImageProcessException(f'Wrong type provided for file {image_path}, {e}') from e
 
     def get_failed_processing(self) -> List[str]:
         """
