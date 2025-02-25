@@ -303,7 +303,7 @@ class PageParser:
         """
         line_document = None
         try:
-            line_document = self.xml_filename
+            line_document = self.get_image_file_name()
             line_list: List[Line] = []
             for text_line in self.root.findall(".//ns:TextLine", namespaces=self.xmlns):
                 line_number = self.get_line_id(text_line)
@@ -313,7 +313,7 @@ class PageParser:
                 custom_attributes = self.get_custom_attribute(text_line)
                 if line_text == '' or line_coordinates == [] or line_baseline_points == []:
                     logger.warning(
-                        '%s - Skipping line %d in file %s as it is '
+                        '%s - Skipping line %s in file %s as it is '
                         'empty or has no coordinates or baseline points.',
                         self.__class__.__name__,
                         line_number,

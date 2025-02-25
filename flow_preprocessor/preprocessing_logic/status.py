@@ -6,7 +6,7 @@ Status class
 # IMPORT STATEMENTS
 # ===============================================================================
 from datetime import datetime
-from typing import List, Any
+from typing import List, Union
 from flow_preprocessor.preprocessing_logic.models import PreprocessState, StateEnum
 from flow_preprocessor.exceptions.exceptions import ImageFetchException
 
@@ -92,7 +92,7 @@ class Status:
 
         return PreprocessState(**self.state.model_dump(by_alias=True))
 
-    def update_image_list(self, new_line_images: Any[str, List]) -> PreprocessState:
+    def update_image_list(self, new_line_images: Union[str, List]) -> PreprocessState:
         """
         Update the image list.
 

@@ -122,7 +122,7 @@ class ImageProcessor:
             raise ImageProcessException(f'The image cannot be opened and identified for file {in_path}, {e}') from e
         except ValueError as e:
             logger.error(
-                '%s - Wrong value provided for file %s on line %d, %s',
+                '%s - Wrong value provided for file %s on line %s, %s',
                 self.__class__.__name__,
                 in_path,
                 line_number,
@@ -174,7 +174,7 @@ class ImageProcessor:
             cropped_image.paste(cutout, (0, 0), mask=cutout)
             cropped_image = cropped_image.convert('RGB')
             logger.info(
-                '%s - Successfully extracted line %d for image %s',
+                '%s - Successfully extracted line %s for image %s',
                 self.__class__.__name__,
                 line_number,
                 image_path,

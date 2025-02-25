@@ -233,6 +233,7 @@ class Preprocessor:
             else:
                 gt_dict[line_name] = line.expand_abbreviations()
 
+            logger.info("Added to gt_dict: key = %s, value = %s", line_name, gt_dict[line_name])
             image_path = os.path.join(self.in_path, page.image_file_name)
 
             if not self.crop:
@@ -274,12 +275,11 @@ class Preprocessor:
         :param gt_dict: Dictionary containing line names and texts.
         :param out_path: The output path where the file will be saved.
         """
-        file_path = os.path.join(out_path, 'gt.txt')
+        file_path = os.path.join(out_path, "gt.txt")
 
-        with open(file_path, "a", encoding='utf-8') as txt_file:
+        with open(file_path, "a", encoding="utf-8") as txt_file:
             for line_name, line_text in gt_dict.items():
-                escaped_text = json.dumps(line_text)
-                txt_file.write(f"{line_name}\t{escaped_text}\n")
+                txt_file.write(f"{line_name}\t{line_text}\n")
 
     @staticmethod
     def _get_gt_dict(out_path: str) -> Dict[str, str]:
