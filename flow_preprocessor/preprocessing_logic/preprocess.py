@@ -6,17 +6,18 @@ Preprocessor class
 # IMPORT STATEMENTS
 # ===============================================================================
 import os
-import json
 import shutil
 import csv
-from typing import List, Dict, Any, Coroutine, Callable, Optional
+from typing import List, Dict, Optional, Union
+from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from PIL.Image import Image
 
 from flow_githubmanager.github_interaction import GitHubManager
 
 from flow_preprocessor.preprocessing_logic.fetch_images import ImageDownloader
-from flow_preprocessor.preprocessing_logic.parse_textlines import PageParser, Page
+from flow_preprocessor.preprocessing_logic.parse_textlines import PageParser
 from flow_preprocessor.preprocessing_logic.process_images import ImageProcessor
 from flow_preprocessor.preprocessing_logic.status import Status
 from flow_preprocessor.preprocessing_logic.models import PreprocessState, StateEnum
@@ -35,68 +36,80 @@ class Preprocessor:
 
     def __init__(
             self,
-            process_id: str,
+            _id: str,
             repo_name: str,
             repo_folder: str,
+            datbase: AsyncIOMotorDatabase,
             github_access_token: Optional[str],
-            callback_preprocess: Callable[[dict], Coroutine[Any, Any, None]] = None,
             crop: bool = False,
             abbrev: bool = False,
             stop_on_fail: bool = True,
+            minwidth: Union[int, float] = None,
             # segment: bool = False,
             **kwargs,
     ) -> None:
         """
         initialize parameters.
 
-        :param process_id: id of preprocessing process.
+        :param _id: id of preprocessing process.
         :param repo_name: name of repo.
         :param repo_folder: folder where repo is located.
+        :param database: MongoDB database to update status.
         :param github_access_token: github access token.
         :param callback_preprocess: callback function for preprocessing.
         :param crop: whether to crop.
         :param abbrev: whether to abbrev.
         :param stop_on_fail: whether to stop preprocessing.
+        :param minwidth: minimum width an image needs to be preprocessed.
         :param segment: wether to segment the image.
         :param self.image_processor: ImageProcessor instance.
         :param self.image_downloader: ImageDownloader instance.
         :param self.github_manager: GitHubManager instance.
-        :param self.process_id: the ID of the preprocessors process.
+        :param self._id: the ID of the preprocessors process.
         :param kwargs: keyword arguments for status.
         """
 
-        self.process_id = process_id
+        self._id = ObjectId(_id)
         self.repo_name = repo_name
         self.repo_folder = repo_folder
+        self.db = datbase
         self.github_access_token = github_access_token
-        self.callback = callback_preprocess
         self.crop = crop
         self.abbrev = abbrev
         self.stop_on_fail = stop_on_fail
         self.directory = os.path.join('data', repo_name.replace('/', '___'))
         self.in_path = os.path.join(self.directory, 'fetched')
         self.out_path = os.path.join(self.directory, 'preprocessed')
+
+        if minwidth is not None:
+            self.minwidth = int(minwidth)
+        else:
+            self.minwidth = None
         self.kwargs = kwargs
         # TODO: Change as soon as Segmenter is implemented
         # self.segment = segment
-        self.segment = False
+        if 'segment' in kwargs:
+            self.segment = kwargs['segment']
+            del kwargs['segment']
+        else:
+            self.segment = False
 
         self.image_processor = ImageProcessor()
         self.image_downloader = ImageDownloader()
         self.github_manager = GitHubManager(github_access_token)
 
-        state = PreprocessState(
-            process_id=self.process_id,
+        self.progress_status = PreprocessState(
+            _id=self._id,
             repo_name=self.repo_name,
             repo_folder=self.repo_folder,
             crop=self.crop,
-            abbreviation=self.abbrev,
+            abbrev=self.abbrev,
             stop_on_fail=self.stop_on_fail,
             segment=self.segment,
+            minwidth=self.minwidth,
             **self.kwargs
         )
-        self.progress_status = PreprocessState(**state.model_dump(by_alias=True))
-        self.status_manager = Status(self.progress_status)
+        self.status_manager = Status(self.progress_status, db=self.db)
 
     async def preprocess(self) -> None:
         """
@@ -140,26 +153,18 @@ class Preprocessor:
         """
 
         for i, xml_file in enumerate(page_xml_list):
-            logger.info("Preprocessor.preprocess_xml_file_list(): Preprocessing %s...", xml_file)
+            logger.debug("Preprocessor.preprocess_xml_file_list(): Preprocessing %s...", xml_file)
             logger.info("Preprocessor.preprocess_xml_file_list(): Progress: %d/%d",
                         i + 1,
                         len(page_xml_list)
                         )
             try:
                 self.preprocess_single_xml_file(xml_file)
-                logger.info("Preprocessor.preprocess_xml_file_list(): Preprocessed %s.", xml_file)
                 self.progress_status = await self.status_manager.update_progress(
                     current_item_index=i + 1,
-                    current_item_name=xml_file
+                    current_item_name=xml_file,
                 )
 
-                if self.callback:
-                    await self.callback(
-                        self.progress_status.model_dump(
-                            by_alias=True,
-                            exclude={'line_images'}
-                        )
-                    )
             except (ParseTextLinesException, ImageProcessException, ImageFetchException) as e:
                 logger.error("Preprocessor.preprocess_xml_file_list(): Failed to preprocess %s.", xml_file,
                              exc_info=True)
@@ -187,23 +192,17 @@ class Preprocessor:
                 logger.info(
                     "Preprocessor.preprocess_xml_file_list(): Preprocessing %s done. Runtime (sec): %s",
                     xml_file,
-                    self.progress_status.runtime,
+                    self.progress_status.runtime_seconds,
                 )
 
-        self.progress_status = await self.status_manager.update_progress(state_enum=StateEnum.DONE)
-        logger.info(
+        self.progress_status = await self.status_manager.update_progress(
+            state_enum=StateEnum.DONE,
+        )
+        logger.debug(
             "Preprocessor.preprocess_xml_file_list(): Preprocessing done. ProgressStatus: %s",
             self.progress_status,
         )
-
-        self.progress_status.state = StateEnum.DONE
-        if self.callback:
-            await self.callback(
-                self.progress_status.model_dump(
-                    by_alias=True,
-                    exclude={'line_images'}
-                )
-            )
+        logger.info('Preprocessor.preprocess_xml_file_list(): Preprocessing done. Saving failed files.')
 
     def preprocess_single_xml_file(self, xml_file: str) -> None:
         """
@@ -211,17 +210,19 @@ class Preprocessor:
 
         :param xml_file: The XML file to be processed.
         """
-        page_parser = PageParser(xml_file, self.segment)
-
-        file_name = page_parser.get_image_file_name()
-        metadata = page_parser.get_metadata()
-        lines_per_page = page_parser.process_lines_from_xml_file()
-        page = Page(file_name, lines_per_page, metadata)
-        gt_dict = {}
+        try:
+            page_parser = PageParser(xml_file, self.segment)
+            page = page_parser.get_page()
+            gt_dict = {}
+        except ParseTextLinesException as e:
+            logger.error("Error parsing XML file %s: %s", xml_file, exc_info=True)
+            if self.stop_on_fail:
+                raise
+            return
         try:
             self.image_downloader.fetch_image(page, self.in_path)
         except ImageFetchException as e:
-            logger.error("Error fetching image for file %s from %s.", file_name, e)
+            logger.error("Error fetching image for file %s: %s.", xml_file, e)
             if self.stop_on_fail:
                 raise
             return
@@ -233,14 +234,15 @@ class Preprocessor:
             else:
                 gt_dict[line_name] = line.expand_abbreviations()
 
-            logger.info("Added to gt_dict: key = %s, value = %s", line_name, gt_dict[line_name])
+            logger.debug("Added to gt_dict: key = %s, value = %s", line_name, gt_dict[line_name])
             image_path = os.path.join(self.in_path, page.image_file_name)
 
             if not self.crop:
                 image_per_line = self.image_processor.extract_line_from_image(line.line_baseline,
                                                                               line.line_coordinates,
                                                                               image_path,
-                                                                              line.line_number)
+                                                                              line.line_number,
+                                                                              self.minwidth)
             else:
                 coordinates = [(coord.x, coord.y) for coord in line.line_coordinates]
                 image_per_line = self.image_processor.crop_line_from_image(coordinates,
@@ -307,6 +309,11 @@ class Preprocessor:
             file_path = os.path.join(self.out_path, f'{repo_str}_image_process_failed_files.txt')
             with open(file_path, "w", encoding='utf-8') as txt_file:
                 for file in self.image_processor.failed_processing:
+                    txt_file.write(f"{file}\n")
+
+            file_path = os.path.join(self.out_path, f'{repo_str}_image_too_short_files.txt')
+            with open(file_path, "w", encoding='utf-8') as txt_file:
+                for file in self.image_processor.too_short:
                     txt_file.write(f"{file}\n")
         if to_save in ('image_download', 'both'):
             file_path = os.path.join(self.out_path, f'{repo_str}_image_download_failed_files.txt')

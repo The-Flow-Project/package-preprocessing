@@ -13,6 +13,7 @@ from lxml import etree as et
 
 from flow_preprocessor.exceptions.exceptions import ParseTextLinesException
 from flow_preprocessor.utils.logging.preprocessing_logger import logger
+# from flow_preprocessor.preprocessing_logic.segmentation import SegmenterYOLO
 
 
 # ===============================================================================
@@ -33,8 +34,8 @@ class Coordinate:
         :param x: x coordinate
         :param y: y coordinate
         """
-        self.x = x
-        self.y = y
+        self.x = float(x)
+        self.y = float(y)
 
     def __eq__(self, other) -> bool:
         """Override the equality operator.
@@ -48,14 +49,41 @@ class Coordinate:
             return False
         return self.x == other.x and self.y == other.y
 
-    @classmethod
-    def min_x(cls, coordinates: List['Coordinate']) -> float:
+    @staticmethod
+    def get_width(coordinates: List['Coordinate']) -> float:
+        """
+        get the width (x_max - x_min)
+
+        :param coordinates: list of coordinates
+        :return: width
+        """
+        min_x = Coordinate.min_x(coordinates)
+        max_x = Coordinate.max_x(coordinates)
+
+        return float(max_x - min_x)
+
+    @staticmethod
+    def get_bbox(coordinates: List['Coordinate']) -> tuple[float, float, float, float]:
+        """
+        get the bounding box of the coordinates.
+
+        :param coordinates: list of coordinates
+        :return: bounding box (left, lower, right, upper)
+        """
+        min_x = Coordinate.min_x(coordinates)
+        max_x = Coordinate.max_x(coordinates)
+        min_y = Coordinate.min_y(coordinates)
+        max_y = Coordinate.max_y(coordinates)
+        return min_x, min_y, max_x, max_y
+
+    @staticmethod
+    def min_x(coordinates: List['Coordinate']) -> float:
         """set minimum x coordinate.
 
         :param coordinates: list of coordinates.
         :return: minimum x coordinate.
         """
-        return min(coord.x for coord in coordinates)
+        return min([coord.x for coord in coordinates])
 
     @staticmethod
     def max_x(coordinates: List['Coordinate']) -> float:
@@ -64,17 +92,17 @@ class Coordinate:
         :param coordinates: list of coordinates.
         :return: minimum y coordinate.
         """
-        return max(coord.x for coord in coordinates)
+        return max([coord.x for coord in coordinates])
 
     @staticmethod
     def min_y(coordinates: List['Coordinate']) -> float:
         """set minimum y coordinate."""
-        return min(coord.y for coord in coordinates)
+        return min([coord.y for coord in coordinates])
 
     @staticmethod
     def max_y(coordinates: List['Coordinate']) -> float:
         """set maximum y coordinate."""
-        return max(coord.y for coord in coordinates)
+        return max([coord.y for coord in coordinates])
 
 
 # ===============================================================================
@@ -198,7 +226,11 @@ class Page:
     An XML Page.
     """
 
-    def __init__(self, image_file_name, lines, metadata):
+    def __init__(self,
+                 image_file_name: str,
+                 lines: List[Line],
+                 metadata: Metadata
+                 ) -> None:
         """
         initialise class parameters.
 
@@ -252,20 +284,29 @@ class PageParser:
             self.namespace_uri = self.root.tag.split('}')[0][1:]
             self.namespace = {'prefix': self.namespace_uri}
             self.xmlns = {'ns': self.namespace_uri}
+            image_filename = self.get_image_file_name()
 
-            # TODO: Write Segmenter package
             """
             if segment:
                 existing_segmentation = self.check_segmentation()
                 if existing_segmentation == 'ground_truth':
                     pass
+                else:
+                    segmenter = SegmenterYOLO(
+                        models=['Riksarkivet/yolov9-regions-1', 'Riksarkivet/yolov9-lines-within-regions-1'],
+                        batch_sizes=4,
+                        order_lines=True,
+                    )
+                    self.tree = segmenter.segment(self.tree, image_filename)
+                    self.root = self.tree.getroot()
+                
                 elif existing_segmentation == 'segmented':
                     segmenter = Segmenter('linemasks')
                     self.root = segmenter.segment(self.root)
                 else:
                     segmenter = Segmenter('yolo')
                     self.root = segmenter.segment(self.root)
-            """
+                """
 
         except (et.XMLSyntaxError, et.ParseError) as e:
             self.failed_processing.append(xml_file)
@@ -437,13 +478,13 @@ class PageParser:
 
         unicode_text = text_line.find('./ns:TextEquiv/ns:Unicode', namespaces=self.xmlns)
         if unicode_text is not None and hasattr(unicode_text, 'text'):
-            logger.info('%s - Got Unicode text: %s', self.__class__.__name__, unicode_text.text)
+            logger.debug('%s - Got Unicode text: %s', self.__class__.__name__, unicode_text.text)
             if unicode_text.text is not None:
                 text: str = unicode_text.text.strip()
             else:
                 text: str = ''
         else:
-            logger.info('%s - No Unicode text found', self.__class__.__name__)
+            logger.debug('%s - No Unicode text found', self.__class__.__name__)
             text: str = ''
         return text
 
@@ -543,8 +584,19 @@ class PageParser:
         """
         Get the Page-object from the XML file.
         """
-        return Page(
-            self.get_image_file_name(),
-            self.process_lines_from_xml_file(),
-            self.get_metadata()
-        )
+        try:
+            return Page(
+                self.get_image_file_name(),
+                self.process_lines_from_xml_file(),
+                self.get_metadata()
+            )
+        except ParseTextLinesException as e:
+            logger.error(
+                '%s - Error parsing file %s',
+                self.__class__.__name__,
+                self.xml_filename,
+                exc_info=True,
+            )
+            self.failed_processing.append(self.xml_filename)
+            raise ParseTextLinesException(f'Error parsing file {self.xml_filename}: {e}') from e
+

@@ -7,8 +7,10 @@ Status class
 # ===============================================================================
 from datetime import datetime
 from typing import List, Union
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from flow_preprocessor.preprocessing_logic.models import PreprocessState, StateEnum
 from flow_preprocessor.exceptions.exceptions import ImageFetchException
+from flow_preprocessor.utils.logging.preprocessing_logger import logger
 
 
 # ===============================================================================
@@ -21,13 +23,14 @@ class Status:
     :param state: the preprocessing state in this moment.
     """
 
-    def __init__(self, state: PreprocessState) -> None:
+    def __init__(self, state: PreprocessState, db: AsyncIOMotorDatabase) -> None:
         """
         initialise class parameters.
 
         :param state: the state of the preprocess status.
         """
         self.state = state
+        self.db: AsyncIOMotorDatabase = db
 
     def initialize_status(self, files_fetched: List, files_download_failed: List) -> PreprocessState:
         """
@@ -41,25 +44,27 @@ class Status:
         self.state.files_failed_download = len(files_download_failed)
         self.state.filenames_failed_download = files_download_failed
         self.state.state = StateEnum.IN_PROGRESS
-        self.state.runtime = 0
+        self.state.runtime_seconds = 0
         self.state.line_images = []
         return PreprocessState(**self.state.model_dump(by_alias=True))
 
     def calculate_runtime(self) -> int:
         """
-        Calculate runtime.
+        Calculate runtime_seconds.
 
-        :return: runtime in seconds as int.
+        :return: runtime_seconds in seconds as int.
         """
         delta = datetime.now() - self.state.created_at
         return int(delta.total_seconds())
 
-    async def update_progress(self,
-                              current_item_index: int = None,
-                              current_item_name: str = None,
-                              success: bool = True,
-                              exception: Exception = None,
-                              state_enum: StateEnum = None, ) -> PreprocessState:
+    async def update_progress(
+            self,
+            current_item_index: int = None,
+            current_item_name: str = None,
+            success: bool = True,
+            exception: Exception = None,
+            state_enum: StateEnum = None,
+    ) -> PreprocessState:
         """
         update progress when job is finished.
 
@@ -88,8 +93,30 @@ class Status:
             if state_enum is not None:
                 self.state.state = state_enum
 
-        self.state.runtime = self.calculate_runtime()
+        self.state.runtime_seconds = self.calculate_runtime()
 
+        new_status_dict = self.state.model_dump(
+            by_alias=True,
+            exclude={'line_images'},
+            exclude_defaults=True,
+            exclude_unset=True,
+        )
+
+        logger.info(
+            f"Updating DB status: {new_status_dict['_id']}"
+        )
+        del new_status_dict['_id']
+        result = await self.db.preprocess_status.update_one(
+            {"_id": self.state.id},
+            {"$set": new_status_dict},
+        )
+        if result:
+            logger.info('Result: %s', result)
+            logger.info(
+                f"Status updated: {new_status_dict['progress']}%",
+            )
+        else:
+            logger.info("Status not updated in DB")
         return PreprocessState(**self.state.model_dump(by_alias=True))
 
     def update_image_list(self, new_line_images: Union[str, List]) -> PreprocessState:

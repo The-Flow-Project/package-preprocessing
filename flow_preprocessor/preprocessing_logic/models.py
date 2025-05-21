@@ -4,8 +4,9 @@ Models to use for the preprocessing package - mainly the status model
 from datetime import datetime
 from typing import Optional, List
 import enum
+from bson import ObjectId
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class StateEnum(enum.Enum):
@@ -21,9 +22,9 @@ class PreprocessState(BaseModel):
     """
     The state of a preprocessing job
     """
-    process_id: str = Field(alias="process_id",
-                            description="The uniqueid of the preprocess status.",
-                            title="ID")
+    id: ObjectId = Field(alias="_id",
+                         description="The uniqueid of the preprocess status.",
+                         title="ID")
     created_at: datetime = Field(alias="created_at",
                                  description="The timestamp of the preprocess status creation.",
                                  title="Created-At",
@@ -35,10 +36,10 @@ class PreprocessState(BaseModel):
                              description="Folder in the repository the files are fetched from.",
                              title="Repository-Folder",
                              examples=["xml", "page"])
-    abbreviation: bool = Field(default=False,
-                               alias="abbreviation",
-                               description="Whether to expand abbreviations in text.",
-                               title="Abbreviation")
+    abbrev: bool = Field(default=False,
+                         alias="abbrev",
+                         description="Whether to expand abbreviations in text.",
+                         title="Abbreviation")
     crop: bool = Field(default=False,
                        alias="crop",
                        description="Whether to crop images to their linemask.",
@@ -87,12 +88,26 @@ class PreprocessState(BaseModel):
                                         description="The names of the lines images processed.",
                                         title="Filenames-Line-Images-Processed",
                                         default=[])
-    runtime: Optional[int] = Field(alias="runtime",
-                                   description="The runtime of the preprocess status.",
-                                   title="Runtime",
-                                   default=0)
+    runtime_seconds: Optional[int] = Field(alias="runtime_seconds",
+                                           description="The runtime_seconds of the preprocess status.",
+                                           title="Runtime",
+                                           default=0)
     segment: Optional[bool] = Field(alias="segment",
                                     description="Whether the images have to be segmented before processing.",
                                     title="Segment",
                                     default=False
                                     )
+    minwidth: Optional[int] = Field(alias="min-width",
+                                    description="The minimum width of an image needed to be processed.",
+                                    title="Min-Width",
+                                    default=None
+                                    )
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        str_strip_whitespace=True,
+        json_encoders={
+            ObjectId: str
+        },
+    )

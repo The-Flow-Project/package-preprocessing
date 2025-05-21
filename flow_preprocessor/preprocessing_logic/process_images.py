@@ -26,9 +26,11 @@ class ImageProcessor:
         Initialize class parameters.
 
         :param: self.failed_processing: images which could not be processed.
+        :param: self.too_short: images which are too short to be processed.
         :param: self.logger: the logger instance.
         """
         self.failed_processing: List[str] = []
+        self.too_short: List[str] = []
 
     @staticmethod
     def _correct_orientation(image):
@@ -65,7 +67,8 @@ class ImageProcessor:
                                 baseline_points: List[Coordinate],
                                 coordinates: List[Coordinate],
                                 in_path: Union[str, bytes],
-                                line_number: str) -> Image:
+                                line_number: str,
+                                min_width: float = None) -> Image:
         """
         Extract line from image in bounding box.
 
@@ -73,27 +76,30 @@ class ImageProcessor:
         :param coordinates: the coordinates of the line.
         :param in_path: the input path of the images to be processed.
         :param line_number: the line number of the line to be processed.
+        :param min_width: the minimum width of the lines to be processed.
         :return: Line as PILImage object.
         """
         try:
-            logger.info(
+            logger.debug(
                 '%s - baseline_points: %s',
                 self.__class__.__name__,
                 baseline_points,
             )
 
-            y_max_base = Coordinate.max_y(baseline_points)
-            x_min_coord = Coordinate.min_x(coordinates)
-            x_max_coord = Coordinate.max_x(coordinates)
-            y_min_coord = Coordinate.min_y(coordinates)
-            y_max_coord = Coordinate.max_y(coordinates)
-
-            # only use baseline y_max if it is lower than the y_min of the region
-            if y_max_base > y_min_coord:
-                y_max_coord = (y_max_base + y_max_coord) / 2
+            if min_width and Coordinate.get_width(baseline_points) < min_width:
+                logger.warning(
+                    '%s - The line %s in %s is too short (width: %s)',
+                    self.__class__.__name__,
+                    line_number,
+                    in_path,
+                    Coordinate.get_width(baseline_points),
+                )
+                self.too_short.append(in_path)
+                self.failed_processing.append(in_path)
+                raise ImageProcessException(f'Line to short: {line_number} in {in_path}')
 
             img = self._load_image(in_path)
-            image_line = img.crop((x_min_coord, y_min_coord, x_max_coord, y_max_coord))
+            image_line = img.crop(Coordinate.get_bbox(baseline_points + coordinates))
             img.close()
             logger.info(
                 '%s - Successfully extracted line %s for image %s',
@@ -139,6 +145,15 @@ class ImageProcessor:
             )
             self.failed_processing.append(in_path)
             raise ImageProcessException(f'Wrong type provided for file {in_path}, {e}') from e
+        except Exception as e:
+            logger.error(
+                '%s - Unknown error occurred for file %s, %s',
+                self.__class__.__name__,
+                in_path,
+                e,
+            )
+            self.failed_processing.append(in_path)
+            raise ImageProcessException(f'Unknown error occurred for file {in_path}, {e}') from e
 
     def crop_line_from_image(self,
                              coordinates: List[Tuple[float, float]],
@@ -159,7 +174,7 @@ class ImageProcessor:
             draw.polygon(coordinates, fill=(0, 0, 0, 255))
 
             # Create a mask image with the polygon filled in white
-            mask = Image.new('L', img.size, 0)
+            mask = Image.new('L', img.size)
             draw_mask = ImageDraw.Draw(mask)
             draw_mask.polygon(coordinates, fill=255)
 
@@ -213,11 +228,3 @@ class ImageProcessor:
             )
             self.failed_processing.append(image_path)
             raise ImageProcessException(f'Wrong type provided for file {image_path}, {e}') from e
-
-    def get_failed_processing(self) -> List[str]:
-        """
-        Retrieve the names of the XML files which failed during download.
-
-        return: List of names of the XML files which could not be processed.
-        """
-        return self.failed_processing
