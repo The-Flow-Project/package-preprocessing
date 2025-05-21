@@ -1,20 +1,11 @@
-<<<<<<< HEAD
 numpy
 pillow
 lxml
 requests
 flow_githubmanager @ git+https://github.com/The-Flow-Project/package-github-api@main
 pydantic~=2.11.4
-setuptools
+setuptools>=78.1.1
 PyYAML
 htrflow
 motor~=3.5.1
-=======
-pillow~=11.0.0
-lxml~=5.3.0
-requests~=2.32.3
-flow_githubmanager~=0.1.0
-pydantic~=2.8.2
-setuptools~=70.2.0
-PyYAML~=6.0.2
->>>>>>> 09a96770331dfdd6802a1e4e9a33f4269bbfca93
+
