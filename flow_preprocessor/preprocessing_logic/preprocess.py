@@ -45,7 +45,7 @@ class Preprocessor:
             abbrev: bool = False,
             stop_on_fail: bool = True,
             minwidth: Union[int, float] = None,
-            # segment: bool = False,
+            segment: bool = False,
             **kwargs,
     ) -> None:
         """
@@ -86,12 +86,13 @@ class Preprocessor:
         else:
             self.minwidth = None
         self.kwargs = kwargs
-        # TODO: Change as soon as Segmenter is implemented
-        # self.segment = segment
-        if 'segment' in kwargs:
-            self.segment = kwargs['segment']
-            del kwargs['segment']
+        if segment and 'segmentation_models' in kwargs:
+            self.segmentation_models = kwargs['segmentation_models']
+            del kwargs['segmentation_models']
         else:
+            self.segmentation_models = None
+
+        if not segment:
             self.segment = False
 
         self.image_processor = ImageProcessor()
@@ -215,7 +216,7 @@ class Preprocessor:
             page = page_parser.get_page()
             gt_dict = {}
         except ParseTextLinesException as e:
-            logger.error("Error parsing XML file %s: %s", xml_file, exc_info=True)
+            logger.error("Error parsing XML file %s: %s", xml_file, e, exc_info=True)
             if self.stop_on_fail:
                 raise
             return

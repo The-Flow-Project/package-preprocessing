@@ -13,7 +13,6 @@ from lxml import etree as et
 
 from flow_preprocessor.exceptions.exceptions import ParseTextLinesException
 from flow_preprocessor.utils.logging.preprocessing_logger import logger
-# from flow_preprocessor.preprocessing_logic.segmentation import SegmenterYOLO
 
 
 # ===============================================================================
@@ -284,29 +283,35 @@ class PageParser:
             self.namespace_uri = self.root.tag.split('}')[0][1:]
             self.namespace = {'prefix': self.namespace_uri}
             self.xmlns = {'ns': self.namespace_uri}
-            image_filename = self.get_image_file_name()
+            # image_filename = self.get_image_file_name()
 
-            """
             if segment:
                 existing_segmentation = self.check_segmentation()
                 if existing_segmentation == 'ground_truth':
+                    # If the XML file already contains ground truth segmentation, do not segment again.
+                    logger.info(
+                        '%s - XML file %s already contains ground truth segmentation, skipping segmentation.',
+                        self.__class__.__name__,
+                        xml_file,
+                    )
+                    pass
+                elif existing_segmentation == 'segmented':
+                    # If the XML file is already segmented, do not segment again - maybe linemasks recognition?
+                    logger.info(
+                        '%s - XML file %s is already segmented, skipping segmentation.',
+                        self.__class__.__name__,
+                        xml_file,
+                    )
                     pass
                 else:
-                    segmenter = SegmenterYOLO(
-                        models=['Riksarkivet/yolov9-regions-1', 'Riksarkivet/yolov9-lines-within-regions-1'],
-                        batch_sizes=4,
-                        order_lines=True,
+                    # If the XML file is not segmented, segment it.
+                    logger.info(
+                        '%s - XML file %s is not segmented, processing lines.',
+                        self.__class__.__name__,
+                        xml_file,
                     )
-                    self.tree = segmenter.segment(self.tree, image_filename)
-                    self.root = self.tree.getroot()
-                
-                elif existing_segmentation == 'segmented':
-                    segmenter = Segmenter('linemasks')
-                    self.root = segmenter.segment(self.root)
-                else:
-                    segmenter = Segmenter('yolo')
-                    self.root = segmenter.segment(self.root)
-                """
+                    pass
+
 
         except (et.XMLSyntaxError, et.ParseError) as e:
             self.failed_processing.append(xml_file)
