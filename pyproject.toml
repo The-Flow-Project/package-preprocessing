@@ -1,0 +1,30 @@
+[project]
+name = "flow_preprocessing"
+version = "0.4.0"
+description = "Preprocessing Package for the Flow Project (flow-project.net)"
+readme = "README.md"
+authors = [
+    { name = "Dana Rebecca Meyer", email = "dameyer@techfak.uni-bielefeld.de" },
+    { name = "Jonas Widmer", email = "jonas.widmer@unibe.ch" }
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "flow-githubmanager",
+    "htrflow>=0.2.5",
+    "lxml>=5.4.0",
+    "motor~=3.5.1",
+    "numpy>=2.2.6",
+    "pillow>=11.2.1",
+    "pydantic~=2.11.4",
+    "pyyaml>=6.0.2",
+    "requests>=2.32.3",
+    "setuptools>=78.1.1",
+]
+
+[tool.uv.sources]
+flow-githubmanager = { git = "https://github.com/The-Flow-Project/package-github-api", rev = "main" }

@@ -3,6 +3,7 @@ pillow
 lxml
 requests
 flow_githubmanager @ git+https://github.com/The-Flow-Project/package-github-api@main
+flow_segmenter # @ git+https://github.com/The-Flow-Project/package-github-api@main
 pydantic~=2.11.4
 setuptools>=78.1.1
 PyYAML
