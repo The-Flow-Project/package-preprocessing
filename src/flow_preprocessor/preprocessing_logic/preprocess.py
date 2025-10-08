@@ -71,7 +71,7 @@ class Preprocessor(ABC):
         self.huggingface_new_repo_name: Optional[
             str] = None if huggingface_new_repo_name is None else huggingface_new_repo_name
         self.huggingface_token: Optional[str] = None if huggingface_token is None \
-              else huggingface_token
+            else huggingface_token
         self.huggingface_repo_private: bool = huggingface_new_repo_private
         self.dataset: Optional[datasets.Dataset] = None
 
@@ -86,7 +86,7 @@ class Preprocessor(ABC):
         else:
             self.namespace = {
                 'pc': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15'
-                }
+            }
 
         self.min_width_line: Optional[int] = int(min_width_line) if min_width_line is not None \
             else None
@@ -231,7 +231,7 @@ class ZipPreprocessor(Preprocessor):
         :return: An instance of XmlConverter configured with LineExporter.
         """
         parser = XmlParser(namespace=self.namespace['pc'])
-        logger.info("Creating XmlConverter for input path: %s", self.input_path)")
+        logger.info("Creating XmlConverter for input path: %s", self.input_path)
         if parser:
             logger.info("XmlParser created successfully.")
         else:
