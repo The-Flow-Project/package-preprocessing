@@ -38,7 +38,7 @@ class Preprocessor(ABC):
             min_width_line: Optional[Union[int, float]] = None,
             min_height_line: Optional[Union[int, float]] = None,
             allow_empty_lines: bool = False,
-            huggingface_repo_private: bool = False,
+            huggingface_new_repo_private: bool = False,
             split_train_ratio: Optional[float] = None,
             split_seed: int = 42,
             split_shuffle: bool = True,
@@ -57,7 +57,8 @@ class Preprocessor(ABC):
         :param min_width_line: Minimum width of the line to be processed.
         :param min_height_line: Minimum height of the line to be processed.
         :param allow_empty_lines: Whether to allow empty lines extracted.
-        :param huggingface_repo_private: Whether the Hugging Face repository is private (token needed).
+        :param huggingface_new_repo_private: Whether the Hugging Face \
+            repository is private (token needed).
         :param split_train_ratio: Ratio of training data to be split - if None, there is no split.
         :param split_seed: Seed for the random split.
         :param split_shuffle: Whether to shuffle the data before splitting.
@@ -69,8 +70,9 @@ class Preprocessor(ABC):
         # Hugging Face repository parameters
         self.huggingface_new_repo_name: Optional[
             str] = None if huggingface_new_repo_name is None else huggingface_new_repo_name
-        self.huggingface_token: Optional[str] = None if huggingface_token is None else huggingface_token
-        self.huggingface_repo_private: bool = huggingface_repo_private
+        self.huggingface_token: Optional[str] = None if huggingface_token is None \
+              else huggingface_token
+        self.huggingface_repo_private: bool = huggingface_new_repo_private
         self.dataset: Optional[datasets.Dataset] = None
 
         # Data handling
@@ -82,22 +84,32 @@ class Preprocessor(ABC):
         if namespace is not None:
             self.namespace = {'pc': namespace}
         else:
-            self.namespace = {'pc': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15'}
+            self.namespace = {
+                'pc': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15'
+                }
 
-        self.min_width_line: Optional[int] = int(min_width_line) if min_width_line is not None else None
+        self.min_width_line: Optional[int] = int(min_width_line) if min_width_line is not None \
+            else None
         if self.min_width_line is not None and self.min_width_line < 0:
-            logger.error("Preprocessor.__init__(): min_width_line must be a positive integer or None.")
+            logger.error(
+                "Preprocessor.__init__(): min_width_line must be a positive integer or None."
+            )
             raise ValueError("min_width_line must be a positive integer or None.")
 
-        self.min_height_line: Optional[int] = int(min_height_line) if min_height_line is not None else None
+        self.min_height_line: Optional[int] = int(min_height_line) if min_height_line is not None \
+            else None
         if self.min_height_line is not None and self.min_height_line < 0:
-            logger.error("Preprocessor.__init__(): min_height_line must be a positive integer or None.")
+            logger.error(
+                "Preprocessor.__init__(): min_height_line must be a positive integer or None."
+            )
             raise ValueError("min_height_line must be a positive integer or None.")
 
         # Split parameters
         if split_train_ratio is not None:
             if split_train_ratio > 1.0 or split_train_ratio <= 0.0:
-                logger.error("Preprocessor.__init__(): split_train_ratio must be between 0.0 and 1.0.")
+                logger.error(
+                    "Preprocessor.__init__(): split_train_ratio must be between 0.0 and 1.0."
+                )
                 raise ValueError("split_train_ratio must be between 0.0 and 1.0.")
         self.split_train_ratio: Optional[float] = split_train_ratio
         self.split_seed: int = split_seed
@@ -107,11 +119,13 @@ class Preprocessor(ABC):
         self.segment: bool = segment
 
         self.pages = None
+        self.stats = None
+        self.state = 'in_progress'
         self.converter: XmlConverter = self.create_xmlconverter()
 
         if isinstance(segmenter_config, dict):
             try:
-                self.segmenter_config: SegmenterConfig = SegmenterConfig(**segmenter_config)
+                self.segmenter_config = SegmenterConfig(**segmenter_config)
             except ValidationError as e:
                 logger.error("Preprocessor.__init__(): Error creating SegmenterConfig: %s", e)
                 raise ValidationError("Invalid segmenter_config provided.") from e
@@ -127,15 +141,18 @@ class Preprocessor(ABC):
 
         :return: An instance of XmlConverter.
         """
-        pass
 
-    async def segment_images(self) -> datasets.Dataset:
+    async def segment_images(self) -> datasets.Dataset | None:
         """
         Segment images in the dataset using the specified segmenter configuration.
 
         :return: A new Hugging Face dataset with segmented images.
         """
-        self.segmentation_models: Optional[Union[List[str], str]] = self.segmenter_config.model_names
+        if self.segmenter_config is None:
+            logger.error("Preprocessor.segment_images(): segmenter_config is None.")
+            raise ValueError("segmenter_config must be provided when segment is True.")
+        self.segmentation_models: Optional[Union[List[str], str]] = \
+            self.segmenter_config.model_names
         segmenter = SegmenterYOLO(config=self.segmenter_config)
         segmented_dataset = self.converter.convert(
             export_mode='raw_xml',
@@ -162,8 +179,11 @@ class Preprocessor(ABC):
                 min_height=self.min_height_line,
                 allow_empty=self.allow_empty_lines,
             )
+            self.stats = self.converter.get_stats()
+            if self.dataset is None:
+                raise RuntimeError("Preprocessor.preprocess(): Dataset is None.")
             if self.huggingface_new_repo_name:
-                logger.info(f"Pushing to Hugging Face repo: {self.huggingface_new_repo_name}")
+                logger.info("Pushing to Hugging Face repo: %s", self.huggingface_new_repo_name)
                 repo_url = self.converter.upload_to_hub(
                     dataset=self.dataset,
                     repo_id=self.huggingface_new_repo_name,
@@ -171,9 +191,12 @@ class Preprocessor(ABC):
                     private=self.huggingface_repo_private,
                 )
                 logger.info('%s - HuggingFace repo URL: %s', self.__class__.__name__, repo_url)
+            self.state = 'completed'
         except Exception as e:
-            logger.error(f"Error during preprocessing/converting: {e}")
+            logger.error("Error during preprocessing/converting: %s", e)
             if self.stop_on_fail:
+                self.state = 'failed'
+                logger.error("Stopping processing due to stop_on_fail=True.")
                 raise e
 
 
@@ -192,8 +215,10 @@ class ZipPreprocessor(Preprocessor):
         Initialize parameters for file preprocessing.
 
         :param input_path: URL to fetch the ZIP-File or local path to the ZIP-File.
-        :param huggingface_new_repo_name: Name of the new Hugging Face repository, where the result is pushed to.
-        :param kwargs: Additional keyword arguments for the base Preprocessor class arguments with default values.
+        :param huggingface_new_repo_name: Name of the new Hugging Face repository, \
+            where the result is pushed to.
+        :param kwargs: Additional keyword arguments for the \
+            base Preprocessor class arguments with default values.
         """
         self.input_path: str = input_path
 
@@ -206,7 +231,7 @@ class ZipPreprocessor(Preprocessor):
         :return: An instance of XmlConverter configured with LineExporter.
         """
         parser = XmlParser(namespace=self.namespace['pc'])
-        logger.info(f"Creating XmlConverter for input path: {self.input_path}")
+        logger.info("Creating XmlConverter for input path: %s", self.input_path)")
         if parser:
             logger.info("XmlParser created successfully.")
         else:
@@ -224,7 +249,7 @@ class ZipPreprocessor(Preprocessor):
                 source_type = 'zip'
             pages = parser.parse_zip(self.input_path)
         if pages is not None:
-            logger.info(f"Parsed {len(pages)} pages successfully.")
+            logger.info("Parsed %s pages successfully.", len(pages))
         else:
             logger.error("Failed to parse pages.")
             raise ValueError("Failed to parse pages.")
@@ -239,11 +264,12 @@ class ZipPreprocessor(Preprocessor):
 
     async def preprocess(self) -> None:
         """
-        Perform preprocessing steps on files in the input directory and save to the output directory.
+        Perform preprocessing steps on files in the input directory 
+        and save to the output directory.
         """
-        logger.info(f"Preprocessing/converting {self.input_path}")
+        logger.info("Preprocessing/converting %s", self.input_path)
         await super().preprocess()
-        logger.info(f"Preprocessing/converting {self.input_path} completed.")
+        logger.info("Preprocessing/converting %s completed.", self.input_path)
 
 
 class HuggingFacePreprocessor(Preprocessor):
@@ -253,7 +279,7 @@ class HuggingFacePreprocessor(Preprocessor):
 
     def __init__(
             self,
-            input_path: Optional[Union[str, datasets.Dataset]],
+            input_path: str,
             huggingface_new_repo_name: Optional[str] = None,
             **kwargs
     ) -> None:
@@ -261,8 +287,10 @@ class HuggingFacePreprocessor(Preprocessor):
         Initialize parameters for file preprocessing.
 
         :param input_path: Hugging Face dataset ID to fetch the XML files from.
-        :param huggingface_new_repo_name: Name of the new Hugging Face repository, where the result is pushed to.
-        :param kwargs: Additional keyword arguments for the base Preprocessor class arguments with default values.
+        :param huggingface_new_repo_name: Name of the new Hugging Face repository, \
+            where the result is pushed to.
+        :param kwargs: Additional keyword arguments for the base Preprocessor class \
+            arguments with default values.
         """
         self.input_path: str = input_path
 
