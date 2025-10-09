@@ -58,6 +58,5 @@ Homepage = "https://flow-project.net"
 Repository = "https://github.com/The-Flow-Project/package-preprocessing"
 
 [tool.uv.sources]
-flow-segmenter = { path = "../package-segmenter" }
-# flow-segmenter = { git = "https://github.com/The-Flow-Project/package-segmenter", rev = "main" }
+flow-segmenter = { git = "https://github.com/The-Flow-Project/package-segmenter", rev = "main" }
 pagexml-hf = { git = "https://github.com/The-Flow-Project/pagexml-hf", rev = "main" }
