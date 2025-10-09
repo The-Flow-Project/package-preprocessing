@@ -2,7 +2,7 @@ numpy
 pillow
 lxml
 requests
-flow_githubmanager @ git+https://github.com/The-Flow-Project/package-github-api@main
+pagexml-hf @ git+https://github.com/The-Flow-Project/pagexml-hf@main
 flow_segmenter @ git+https://github.com/The-Flow-Project/package-segmenter@main
 pydantic~=2.11.4
 setuptools>=78.1.1
