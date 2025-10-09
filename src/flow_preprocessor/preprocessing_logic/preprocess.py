@@ -67,6 +67,8 @@ class Preprocessor(ABC):
             (default http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15).
         """
 
+        self.state = 'in_progress'
+
         # Hugging Face repository parameters
         self.huggingface_new_repo_name: Optional[
             str] = None if huggingface_new_repo_name is None else huggingface_new_repo_name
@@ -94,6 +96,7 @@ class Preprocessor(ABC):
             logger.error(
                 "Preprocessor.__init__(): min_width_line must be a positive integer or None."
             )
+            self.state = 'failed'
             raise ValueError("min_width_line must be a positive integer or None.")
 
         self.min_height_line: Optional[int] = int(min_height_line) if min_height_line is not None \
@@ -102,6 +105,7 @@ class Preprocessor(ABC):
             logger.error(
                 "Preprocessor.__init__(): min_height_line must be a positive integer or None."
             )
+            self.state = 'failed'
             raise ValueError("min_height_line must be a positive integer or None.")
 
         # Split parameters
@@ -110,6 +114,7 @@ class Preprocessor(ABC):
                 logger.error(
                     "Preprocessor.__init__(): split_train_ratio must be between 0.0 and 1.0."
                 )
+                self.state = 'failed'
                 raise ValueError("split_train_ratio must be between 0.0 and 1.0.")
         self.split_train_ratio: Optional[float] = split_train_ratio
         self.split_seed: int = split_seed
@@ -120,7 +125,6 @@ class Preprocessor(ABC):
 
         self.pages = None
         self.stats = None
-        self.state = 'in_progress'
         self.converter: XmlConverter = self.create_xmlconverter()
 
         if isinstance(segmenter_config, dict):
@@ -128,6 +132,7 @@ class Preprocessor(ABC):
                 self.segmenter_config = SegmenterConfig(**segmenter_config)
             except ValidationError as e:
                 logger.error("Preprocessor.__init__(): Error creating SegmenterConfig: %s", e)
+                self.state = 'failed'
                 raise ValidationError("Invalid segmenter_config provided.") from e
         else:
             self.segmenter_config: Optional[SegmenterConfig] = segmenter_config
@@ -150,6 +155,7 @@ class Preprocessor(ABC):
         """
         if self.segmenter_config is None:
             logger.error("Preprocessor.segment_images(): segmenter_config is None.")
+            self.state = 'failed'
             raise ValueError("segmenter_config must be provided when segment is True.")
         self.segmentation_models: Optional[Union[List[str], str]] = \
             self.segmenter_config.model_names
@@ -181,6 +187,7 @@ class Preprocessor(ABC):
             )
             self.stats = self.converter.get_stats()
             if self.dataset is None:
+                self.state = 'failed'
                 raise RuntimeError("Preprocessor.preprocess(): Dataset is None.")
             if self.huggingface_new_repo_name:
                 logger.info("Pushing to Hugging Face repo: %s", self.huggingface_new_repo_name)
@@ -236,6 +243,7 @@ class ZipPreprocessor(Preprocessor):
             logger.info("XmlParser created successfully.")
         else:
             logger.error("Failed to create XmlParser.")
+            self.state = 'failed'
             raise ValueError("Failed to create XmlParser.")
         if self.dataset is not None:
             logger.info("Using dataset for XML conversion.")
@@ -252,6 +260,7 @@ class ZipPreprocessor(Preprocessor):
             logger.info("Parsed %s pages successfully.", len(pages))
         else:
             logger.error("Failed to parse pages.")
+            self.state = 'failed'
             raise ValueError("Failed to parse pages.")
         self.pages = pages
         converter = XmlConverter(pages, source_path=self.input_path, source_type=source_type)
@@ -260,6 +269,7 @@ class ZipPreprocessor(Preprocessor):
             return converter
         else:
             logger.error("Failed to create XmlConverter.")
+            self.state = 'failed'
             raise ValueError("Failed to create XmlConverter.")
 
     async def preprocess(self) -> None:
@@ -308,6 +318,7 @@ class HuggingFacePreprocessor(Preprocessor):
             logger.info("XmlParser created successfully.")
         else:
             logger.error("Failed to create XmlParser.")
+            self.state = 'failed'
             raise ValueError("Failed to create XmlParser.")
         source_type = 'huggingface'
 
@@ -321,6 +332,7 @@ class HuggingFacePreprocessor(Preprocessor):
             logger.info(f"Parsed {len(pages)} pages successfully.")
         else:
             logger.error("Failed to parse pages.")
+            self.state = 'failed'
             raise ValueError("Failed to parse pages.")
         self.pages = pages
         converter = XmlConverter(pages, source_path=self.input_path, source_type=source_type)
@@ -329,6 +341,7 @@ class HuggingFacePreprocessor(Preprocessor):
             return converter
         else:
             logger.error("Failed to create XmlConverter.")
+            self.state = 'failed'
             raise ValueError("Failed to create XmlConverter.")
 
     async def preprocess(self) -> None:
