@@ -38,6 +38,7 @@ class Preprocessor(ABC):
             min_width_line: Optional[Union[int, float]] = None,
             min_height_line: Optional[Union[int, float]] = None,
             allow_empty_lines: bool = False,
+            batch_size: int = 32,
             huggingface_new_repo_private: bool = False,
             split_train_ratio: Optional[float] = None,
             split_seed: int = 42,
@@ -57,6 +58,7 @@ class Preprocessor(ABC):
         :param min_width_line: Minimum width of the line to be processed.
         :param min_height_line: Minimum height of the line to be processed.
         :param allow_empty_lines: Whether to allow empty lines extracted.
+        :param batch_size: Batch size for dataset mapping (default 32).
         :param huggingface_new_repo_private: Whether the Hugging Face \
             repository is private (token needed).
         :param split_train_ratio: Ratio of training data to be split - if None, there is no split.
@@ -82,6 +84,7 @@ class Preprocessor(ABC):
         self.abbrev: bool = abbrev
         self.stop_on_fail: bool = stop_on_fail
         self.allow_empty_lines: bool = allow_empty_lines
+        self.batch_size: int = batch_size
         self.export_mode: str = export_mode
         if namespace is not None:
             self.namespace = {'pc': namespace}
@@ -164,6 +167,7 @@ class Preprocessor(ABC):
             export_mode='raw_xml',
             split_train=None,
             allow_empty=self.allow_empty_lines,
+            batch_size=self.batch_size,
         )
         self.dataset = segmenter.segment_dataset(segmented_dataset, new_column_name='xml')
         self.converter = self.create_xmlconverter()
@@ -181,6 +185,7 @@ class Preprocessor(ABC):
                 split_seed=self.split_seed,
                 split_shuffle=self.split_shuffle,
                 mask_crop=self.crop,
+                batch_size=self.batch_size,
                 min_width=self.min_width_line,
                 min_height=self.min_height_line,
                 allow_empty=self.allow_empty_lines,
