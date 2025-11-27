@@ -615,7 +615,7 @@ tinycss2==1.4.0
     # via bleach
 tokenizers==0.22.1
     # via transformers
-torch==2.7.1
+torch==2.8.0
     # via
     #   accelerate
     #   kraken
