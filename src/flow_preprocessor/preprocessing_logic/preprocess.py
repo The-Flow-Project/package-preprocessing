@@ -44,7 +44,6 @@ class Preprocessor(ABC):
             split_seed: int = 42,
             split_shuffle: bool = True,
             export_mode: str = 'line',
-            namespace: Optional[str] = None,
     ) -> None:
         """
         initialize parameters.
@@ -65,8 +64,6 @@ class Preprocessor(ABC):
         :param split_seed: Seed for the random split.
         :param split_shuffle: Whether to shuffle the data before splitting.
         :param export_mode: Export mode ('raw_xml', 'text', 'region', 'line', 'window').
-        :param namespace: Namespace of the Page XML files
-            (default http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15).
         """
 
         self.state = 'in_progress'
@@ -86,12 +83,6 @@ class Preprocessor(ABC):
         self.allow_empty_lines: bool = allow_empty_lines
         self.batch_size: int = batch_size
         self.export_mode: str = export_mode
-        if namespace is not None:
-            self.namespace = {'pc': namespace}
-        else:
-            self.namespace = {
-                'pc': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15'
-            }
 
         self.min_width_line: Optional[int] = int(min_width_line) if min_width_line is not None \
             else None
@@ -242,7 +233,7 @@ class ZipPreprocessor(Preprocessor):
 
         :return: An instance of XmlConverter configured with LineExporter.
         """
-        parser = XmlParser(namespace=self.namespace['pc'])
+        parser = XmlParser()
         logger.info("Creating XmlConverter for input path: %s", self.input_path)
         if parser:
             logger.info("XmlParser created successfully.")
@@ -317,7 +308,7 @@ class HuggingFacePreprocessor(Preprocessor):
 
         :return: An instance of XmlConverter configured with LineExporter.
         """
-        parser = XmlParser(namespace=self.namespace['pc'])
+        parser = XmlParser()
         logger.info(f"Creating XmlConverter for input path: {self.input_path}")
         if parser:
             logger.info("XmlParser created successfully.")
