@@ -28,7 +28,7 @@ class Preprocessor(ABC):
 
     def __init__(
             self,
-            huggingface_new_repo_name: Optional[str] = None,
+            huggingface_repo_name: str,
             huggingface_token: Optional[str] = None,
             crop: bool = False,
             abbrev: bool = False,
@@ -47,7 +47,7 @@ class Preprocessor(ABC):
     ) -> None:
         """
         initialize parameters.
-        :param huggingface_new_repo_name: Name of the new Hugging Face repository.
+        :param huggingface_repo_name: Name of the Hugging Face repository to push to (new or existing to update).
         :param huggingface_token: Hugging Face access token.
         :param crop: Whether to crop the images.
         :param abbrev: Whether to expand abbreviations in the text.
@@ -69,8 +69,7 @@ class Preprocessor(ABC):
         self.state = 'in_progress'
 
         # Hugging Face repository parameters
-        self.huggingface_new_repo_name: Optional[
-            str] = None if huggingface_new_repo_name is None else huggingface_new_repo_name
+        self.huggingface_repo_name: str = huggingface_repo_name
         self.huggingface_token: Optional[str] = None if huggingface_token is None \
             else huggingface_token
         self.huggingface_repo_private: bool = huggingface_new_repo_private
@@ -83,6 +82,11 @@ class Preprocessor(ABC):
         self.allow_empty_lines: bool = allow_empty_lines
         self.batch_size: int = batch_size
         self.export_mode: str = export_mode
+
+        if self.export_mode in ["line", "region", "text", "window"]:
+            self.parse_xml = True
+        else:
+            self.parse_xml = False
 
         self.min_width_line: Optional[int] = int(min_width_line) if min_width_line is not None \
             else None
@@ -117,7 +121,6 @@ class Preprocessor(ABC):
         # Segmenter parameters
         self.segment: bool = segment
 
-        self.pages = None
         self.stats = None
         self.converter: XmlConverter = self.create_xmlconverter()
 
@@ -165,42 +168,28 @@ class Preprocessor(ABC):
 
     async def preprocess(self) -> None:
         """
-        Perform preprocessing steps: fetch XML files from GitHub, preprocess and push to GitHub.
+        Perform preprocessing steps: Create Dataset with XmlConverter and push it to the HuggingFace hub.
         """
-        try:
-            if self.segment and self.segmenter_config is not None:
-                await self.segment_images()
-            self.dataset = self.converter.convert(
-                export_mode=self.export_mode,
-                split_train=self.split_train_ratio,
-                split_seed=self.split_seed,
-                split_shuffle=self.split_shuffle,
-                mask_crop=self.crop,
-                batch_size=self.batch_size,
-                min_width=self.min_width_line,
-                min_height=self.min_height_line,
-                allow_empty=self.allow_empty_lines,
-            )
-            self.stats = self.converter.get_stats()
-            if self.dataset is None:
-                self.state = 'failed'
-                raise RuntimeError("Preprocessor.preprocess(): Dataset is None.")
-            if self.huggingface_new_repo_name:
-                logger.info("Pushing to Hugging Face repo: %s", self.huggingface_new_repo_name)
-                repo_url = self.converter.upload_to_hub(
-                    dataset=self.dataset,
-                    repo_id=self.huggingface_new_repo_name,
-                    token=self.huggingface_token,
-                    private=self.huggingface_repo_private,
-                )
-                logger.info('%s - HuggingFace repo URL: %s', self.__class__.__name__, repo_url)
-            self.state = 'completed'
-        except Exception as e:
-            logger.error("Error during preprocessing/converting: %s", e)
-            if self.stop_on_fail:
-                self.state = 'failed'
-                logger.error("Stopping processing due to stop_on_fail=True.")
-                raise e
+        dataset = self.converter.convert(
+            export_mode=self.export_mode,
+            split_train=self.split_train_ratio,
+            split_seed=self.split_seed,
+            split_shuffle=self.split_shuffle,
+            mask_crop=self.crop,
+            min_width=self.min_width_line,
+            min_height=self.min_height_line,
+            allow_empty=self.allow_empty_lines,
+            batch_size=self.batch_size,
+        )
+
+        # Upload to HuggingFace Hub
+        repo_url = self.converter.upload_to_hub(
+            dataset=dataset,
+            repo_id=self.huggingface_repo_name,
+            token=self.huggingface_token,
+            private=self.huggingface_repo_private,
+        )
+        logger.info(f"Success! Dataset available at: {repo_url}")
 
 
 class ZipPreprocessor(Preprocessor):
@@ -211,29 +200,30 @@ class ZipPreprocessor(Preprocessor):
     def __init__(
             self,
             input_path: str,
-            huggingface_new_repo_name: Optional[str] = None,
+            huggingface_repo_name: str,
             **kwargs
     ) -> None:
         """
         Initialize parameters for file preprocessing.
 
         :param input_path: URL to fetch the ZIP-File or local path to the ZIP-File.
-        :param huggingface_new_repo_name: Name of the new Hugging Face repository, \
+        :param huggingface_repo_name: Name of the Hugging Face repository, \
             where the result is pushed to.
         :param kwargs: Additional keyword arguments for the \
             base Preprocessor class arguments with default values.
         """
         self.input_path: str = input_path
 
-        super().__init__(huggingface_new_repo_name, **kwargs)
+        super().__init__(huggingface_repo_name, **kwargs)
 
     def create_xmlconverter(self) -> XmlConverter:
         """
-        Create an XmlConverter with LineExporter.
+        Create an XmlConverter.
 
-        :return: An instance of XmlConverter configured with LineExporter.
+        :return: An instance of XmlConverter.
         """
         parser = XmlParser()
+
         logger.info("Creating XmlConverter for input path: %s", self.input_path)
         if parser:
             logger.info("XmlParser created successfully.")
@@ -244,22 +234,22 @@ class ZipPreprocessor(Preprocessor):
         if self.dataset is not None:
             logger.info("Using dataset for XML conversion.")
             source_type = 'huggingface'
-            pages = parser.parse_dataset(self.dataset)
+            gen_func = parser.parse_dataset
+            gen_kwargs = {'dataset': self.dataset, 'parse_xml': self.parse_xml}
         else:
             logger.info("Using dataset from ZIP file for XML conversion.")
             if self.input_path.startswith('http://') or self.input_path.startswith('https://'):
                 source_type = 'zip_url'
             else:
                 source_type = 'zip'
-            pages = parser.parse_zip(self.input_path)
-        if pages is not None:
-            logger.info("Parsed %s pages successfully.", len(pages))
-        else:
-            logger.error("Failed to parse pages.")
-            self.state = 'failed'
-            raise ValueError("Failed to parse pages.")
-        self.pages = pages
-        converter = XmlConverter(pages, source_path=self.input_path, source_type=source_type)
+            gen_func = parser.parse_zip
+            gen_kwargs = {'zip_path': self.input_path, 'parse_xml': self.parse_xml}
+        converter = XmlConverter(
+            gen_func=gen_func,
+            gen_kwargs=gen_kwargs,
+            source_type=source_type,
+            source_path=self.input_path
+        )
         if converter is not None:
             logger.info("XmlConverter created successfully.")
             return converter
@@ -286,21 +276,21 @@ class HuggingFacePreprocessor(Preprocessor):
     def __init__(
             self,
             input_path: str,
-            huggingface_new_repo_name: Optional[str] = None,
+            huggingface_repo_name: str,
             **kwargs
     ) -> None:
         """
         Initialize parameters for file preprocessing.
 
         :param input_path: Hugging Face dataset ID to fetch the XML files from.
-        :param huggingface_new_repo_name: Name of the new Hugging Face repository, \
+        :param huggingface_repo_name: Name of the Hugging Face repository, \
             where the result is pushed to.
         :param kwargs: Additional keyword arguments for the base Preprocessor class \
             arguments with default values.
         """
         self.input_path: str = input_path
 
-        super().__init__(huggingface_new_repo_name, **kwargs)
+        super().__init__(huggingface_repo_name, **kwargs)
 
     def create_xmlconverter(self) -> XmlConverter:
         """
@@ -317,21 +307,21 @@ class HuggingFacePreprocessor(Preprocessor):
             self.state = 'failed'
             raise ValueError("Failed to create XmlParser.")
         source_type = 'huggingface'
+        gen_func = parser.parse_dataset
 
         if self.dataset is not None:
             logger.info("Using existing dataset for XML conversion.")
-            pages = parser.parse_dataset(self.dataset)
+            gen_kwargs = {'dataset': self.dataset, 'token': self.huggingface_token, 'parse_xml': self.parse_xml}
         else:
             logger.info("Using dataset from Huggingface Hub for XML conversion.")
-            pages = parser.parse_dataset(self.input_path, token=self.huggingface_token)
-        if pages is not None:
-            logger.info(f"Parsed {len(pages)} pages successfully.")
-        else:
-            logger.error("Failed to parse pages.")
-            self.state = 'failed'
-            raise ValueError("Failed to parse pages.")
-        self.pages = pages
-        converter = XmlConverter(pages, source_path=self.input_path, source_type=source_type)
+            gen_kwargs = {'dataset': self.input_path, 'token': self.huggingface_token, 'parse_xml': self.parse_xml}
+
+        converter = XmlConverter(
+            gen_func=gen_func,
+            gen_kwargs=gen_kwargs,
+            source_type=source_type,
+            source_path=self.input_path
+        )
         if converter is not None:
             logger.info("XmlConverter created successfully.")
             return converter
