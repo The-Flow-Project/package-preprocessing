@@ -58,4 +58,4 @@ Repository = "https://github.com/The-Flow-Project/package-preprocessing"
 
 [tool.uv.sources]
 flow-segmenter = { git = "https://github.com/The-Flow-Project/package-segmenter", rev = "main" }
-pagexml-hf = { git = "https://github.com/The-Flow-Project/pagexml-hf", rev = "main" }
+pagexml-hf = { git = "https://github.com/The-Flow-Project/pagexml-hf", tag = "v0.5.0+fork.1" }

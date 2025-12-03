@@ -99,7 +99,7 @@ filelock==3.20.0
     #   transformers
 flake8==7.3.0
     # via fuzzy-search
-flow-segmenter @ git+https://github.com/The-Flow-Project/package-segmenter@c276ee8aa697fb07d1d8e34d2c8f131022fa8ed9
+flow-segmenter @ git+https://github.com/The-Flow-Project/package-segmenter@f59eb9ae7168c23d0543a42d8cd70c3cf40223eb
     # via flow-preprocessing (pyproject.toml)
 flufl-lock==8.2.0
     # via htrmopo
@@ -249,6 +249,8 @@ lightning-utilities==0.15.2
     #   lightning
     #   pytorch-lightning
     #   torchmetrics
+loguru==0.7.3
+    # via pagexml-hf
 lxml==6.0.2
     # via
     #   flow-preprocessing (pyproject.toml)
@@ -340,7 +342,6 @@ numpy==2.0.2
 opencv-python==4.12.0.88
     # via
     #   htrflow
-    #   pagexml-hf
     #   ultralytics
 optype==0.14.0
     # via scipy-stubs
@@ -365,7 +366,7 @@ packaging==24.2
     #   scikit-image
     #   torchmetrics
     #   transformers
-pagexml-hf @ git+https://github.com/The-Flow-Project/pagexml-hf@4f70040e16544af2d527b997543ab841dc0070b9
+pagexml-hf @ git+https://github.com/The-Flow-Project/pagexml-hf@4434b11f8126a6f5d136c22ca04b3ea350cc2e05
     # via flow-preprocessing (pyproject.toml)
 pagexml-tools==0.6.0
     # via htrflow
@@ -373,6 +374,7 @@ pandas==2.3.3
     # via
     #   datasets
     #   htrflow
+    #   pagexml-hf
 pandocfilters==1.5.1
     # via nbconvert
 parso==0.8.5
@@ -555,7 +557,9 @@ safetensors==0.6.2
     #   accelerate
     #   transformers
 scikit-image==0.24.0
-    # via kraken
+    # via
+    #   kraken
+    #   pagexml-hf
 scikit-learn==1.5.2
     # via kraken
 scipy==1.13.1
@@ -615,7 +619,7 @@ tinycss2==1.4.0
     # via bleach
 tokenizers==0.22.1
     # via transformers
-torch==2.8.0
+torch==2.7.1
     # via
     #   accelerate
     #   kraken
