@@ -29,7 +29,7 @@ logging_config = {
             'filename': 'logs/preprocessing.log',
             'mode': 'a',
             'encoding': 'utf-8',
-            'maxBytes': 10485760,
+            'maxBytes': 5242880,  # 5 MB
             'backupCount': 5,
         },
         'console': {

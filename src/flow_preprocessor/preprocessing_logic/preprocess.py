@@ -1,339 +1,565 @@
 """
-Preprocessor class
+Flow Preprocessor - Main Preprocessing Module
+
+This module provides preprocessing functionality for PageXML datasets with:
+- Async/await support for FastAPI (using asyncio.to_thread for non-blocking)
+- Dependency Injection pattern
+- Factory Pattern for converter creation
+- Configuration object pattern
+- Support for ZIP files and HuggingFace datasets
+- Optional GPU-accelerated image segmentation
 """
 
-# ===============================================================================
-# IMPORT STATEMENTS
-# ===============================================================================
 from abc import ABC, abstractmethod
-from typing import List, Optional, Union
+from typing import Optional, Dict, Any, Union, List
+import asyncio
 import datasets
 from pydantic import ValidationError
-from pagexml_hf import XmlConverter, XmlParser
 
+from pagexml_hf import XmlConverter
 from flow_segmenter import SegmenterYOLO, SegmenterConfig
 
 from flow_preprocessor.utils.logging.preprocessing_logger import logger
+from flow_preprocessor.preprocessing_logic.config import (
+    PreprocessorConfig,
+    ProcessorState,
+    ExportMode,
+)
+from flow_preprocessor.preprocessing_logic.converter_factory import ConverterFactory
 
 
 # ===============================================================================
-# CLASS
+# BASE PREPROCESSOR
 # ===============================================================================
 
-# TODO: check stop_on_fail and abbrev implementation
 class Preprocessor(ABC):
     """
-    Perform preprocessing steps.
+    Base preprocessor class with improved OOP design and async support.
+
+    Features:
+    - Dependency Injection for better testability
+    - Configuration object pattern for cleaner initialization
+    - Async/await with asyncio.to_thread() for FastAPI compatibility
+    - Factory pattern for converter creation
+    - Properties for encapsulation
     """
 
     def __init__(
             self,
-            huggingface_repo_name: str,
-            huggingface_token: Optional[str] = None,
-            crop: bool = False,
-            abbrev: bool = False,
-            segment: bool = False,
-            segmenter_config: Optional[Union[SegmenterConfig, dict]] = None,
-            stop_on_fail: bool = True,
-            min_width_line: Optional[Union[int, float]] = None,
-            min_height_line: Optional[Union[int, float]] = None,
-            allow_empty_lines: bool = False,
-            batch_size: int = 32,
-            huggingface_new_repo_private: bool = False,
-            split_train_ratio: Optional[float] = None,
-            split_seed: int = 42,
-            split_shuffle: bool = True,
-            export_mode: str = 'line',
+            config: PreprocessorConfig,
+            converter_factory: Optional[ConverterFactory] = None
     ) -> None:
         """
-        initialize parameters.
-        :param huggingface_repo_name: Name of the Hugging Face repository to push to (new or existing to update).
-        :param huggingface_token: Hugging Face access token.
-        :param crop: Whether to crop the images.
-        :param abbrev: Whether to expand abbreviations in the text.
-        :param segment: Whether to segment the images.
-        :param segmenter_config: Configuration for the segmenter.
-        :param stop_on_fail: Whether to stop processing on failure.
-        :param min_width_line: Minimum width of the line to be processed.
-        :param min_height_line: Minimum height of the line to be processed.
-        :param allow_empty_lines: Whether to allow empty lines extracted.
-        :param batch_size: Batch size for dataset mapping (default 32).
-        :param huggingface_new_repo_private: Whether the Hugging Face \
-            repository is private (token needed).
-        :param split_train_ratio: Ratio of training data to be split - if None, there is no split.
-        :param split_seed: Seed for the random split.
-        :param split_shuffle: Whether to shuffle the data before splitting.
-        :param export_mode: Export mode ('raw_xml', 'text', 'region', 'line', 'window').
+        Initialize the preprocessor.
+
+        :param config: Configuration object containing all settings.
+        :param converter_factory: Optional factory for creating converters (for testing/DI).
         """
+        self._config = config
+        self._converter_factory = converter_factory or ConverterFactory()
+        self._state = ProcessorState.INITIALIZED
+        self._dataset: Optional[datasets.Dataset] = None
+        self._converter: Optional[XmlConverter] = None
+        self._segmentation_models: Optional[Union[List[str], str]] = None
 
-        self.state = 'in_progress'
+        # Initialize segmenter config
+        self._segmenter_config = self._initialize_segmenter_config(
+            config.segmenter_config
+        )
 
-        # Hugging Face repository parameters
-        self.huggingface_repo_name: str = huggingface_repo_name
-        self.huggingface_token: Optional[str] = None if huggingface_token is None \
-            else huggingface_token
-        self.huggingface_repo_private: bool = huggingface_new_repo_private
-        self.dataset: Optional[datasets.Dataset] = None
+    # ==================== Properties ====================
 
-        # Data handling
-        self.crop: bool = crop
-        self.abbrev: bool = abbrev
-        self.stop_on_fail: bool = stop_on_fail
-        self.allow_empty_lines: bool = allow_empty_lines
-        self.batch_size: int = batch_size
-        self.export_mode: str = export_mode
+    @property
+    def state(self) -> ProcessorState:
+        """Get current processor state."""
+        return self._state
 
-        if self.export_mode in ["line", "region", "text", "window"]:
-            self.parse_xml = True
-        else:
-            self.parse_xml = False
+    @property
+    def config(self) -> PreprocessorConfig:
+        """Get configuration."""
+        return self._config
 
-        self.min_width_line: Optional[int] = int(min_width_line) if min_width_line is not None \
-            else None
-        if self.min_width_line is not None and self.min_width_line < 0:
-            logger.error(
-                "Preprocessor.__init__(): min_width_line must be a positive integer or None."
-            )
-            self.state = 'failed'
-            raise ValueError("min_width_line must be a positive integer or None.")
+    @property
+    def dataset(self) -> Optional[datasets.Dataset]:
+        """Get the current dataset."""
+        return self._dataset
 
-        self.min_height_line: Optional[int] = int(min_height_line) if min_height_line is not None \
-            else None
-        if self.min_height_line is not None and self.min_height_line < 0:
-            logger.error(
-                "Preprocessor.__init__(): min_height_line must be a positive integer or None."
-            )
-            self.state = 'failed'
-            raise ValueError("min_height_line must be a positive integer or None.")
+    @property
+    def converter(self) -> XmlConverter:
+        """
+        Get or create the XmlConverter (lazy initialization).
 
-        # Split parameters
-        if split_train_ratio is not None:
-            if split_train_ratio > 1.0 or split_train_ratio <= 0.0:
-                logger.error(
-                    "Preprocessor.__init__(): split_train_ratio must be between 0.0 and 1.0."
-                )
-                self.state = 'failed'
-                raise ValueError("split_train_ratio must be between 0.0 and 1.0.")
-        self.split_train_ratio: Optional[float] = split_train_ratio
-        self.split_seed: int = split_seed
-        self.split_shuffle: bool = split_shuffle
+        :return: XmlConverter instance.
+        """
+        if self._converter is None:
+            self._converter = self.create_xmlconverter()
+        return self._converter
 
-        # Segmenter parameters
-        self.segment: bool = segment
-
-        self.stats = None
-        self.converter: XmlConverter = self.create_xmlconverter()
-
-        if isinstance(segmenter_config, dict):
-            try:
-                self.segmenter_config = SegmenterConfig(**segmenter_config)
-            except ValidationError as e:
-                logger.error("Preprocessor.__init__(): Error creating SegmenterConfig: %s", e)
-                self.state = 'failed'
-                raise ValidationError("Invalid segmenter_config provided.") from e
-        else:
-            self.segmenter_config: Optional[SegmenterConfig] = segmenter_config
-
-        self.segmentation_models = None
+    # ==================== Abstract Methods ====================
 
     @abstractmethod
     def create_xmlconverter(self) -> XmlConverter:
         """
-        Create an XmlConverter.
+        Create an XmlConverter for the specific data source.
+
+        Subclasses must implement this to define their data source.
 
         :return: An instance of XmlConverter.
         """
 
-    async def segment_images(self) -> datasets.Dataset | None:
-        """
-        Segment images in the dataset using the specified segmenter configuration.
+    # ==================== Public Async Methods ====================
 
-        :return: A new Hugging Face dataset with segmented images.
+    async def preprocess(self) -> str:
         """
-        if self.segmenter_config is None:
-            logger.error("Preprocessor.segment_images(): segmenter_config is None.")
-            self.state = 'failed'
-            raise ValueError("segmenter_config must be provided when segment is True.")
-        self.segmentation_models: Optional[Union[List[str], str]] = \
-            self.segmenter_config.model_names
-        segmenter = SegmenterYOLO(config=self.segmenter_config)
+        Perform preprocessing steps: segmentation (optional) and dataset conversion/upload.
+
+        This method is async and uses asyncio.to_thread() to run CPU-intensive operations
+        in a thread pool, ensuring the async event loop is not blocked. This is essential
+        for FastAPI and other async frameworks.
+
+        :return: URL of the uploaded dataset repository.
+        :raises Exception: If preprocessing fails.
+        """
+        try:
+            self._set_state(ProcessorState.IN_PROGRESS)
+
+            # Step 1: Segmentation (if enabled) - non-blocking
+            if self._config.segment:
+                logger.info("Segmentation enabled - running segment_images()...")
+                await self.segment_images()
+                logger.info("Segmentation completed.")
+
+            # Step 2: Convert and upload - non-blocking
+            repo_url = await self._convert_and_upload()
+
+            self._set_state(ProcessorState.COMPLETED)
+            logger.info(f"Success! Dataset available at: {repo_url}")
+            return repo_url
+
+        except Exception as e:
+            self._set_state(ProcessorState.FAILED)
+            logger.error(f"Preprocessing failed: {e}")
+            raise
+
+    async def segment_images(self) -> None:
+        """
+        Segment images in the dataset using YOLO.
+
+        Runs the CPU/GPU-intensive segmentation in a thread pool to avoid blocking
+        the async event loop (important for FastAPI and other async frameworks).
+
+        :raises ValueError: If segmenter_config is not provided.
+        """
+        try:
+            # Run segmentation in thread pool (non-blocking)
+            await asyncio.to_thread(self._segment_images_sync)
+        except Exception as e:
+            logger.error(f"Segmentation failed: {e}")
+            self._set_state(ProcessorState.FAILED)
+            raise
+
+    # ==================== Private Sync Methods ====================
+
+    def _initialize_segmenter_config(
+            self,
+            config: Optional[Union[SegmenterConfig, dict]]
+    ) -> Optional[SegmenterConfig]:
+        """
+        Initialize segmenter configuration.
+
+        :param config: Segmenter config as object or dict.
+        :return: SegmenterConfig instance or None.
+        :raises ValidationError: If config dict is invalid.
+        """
+        if config is None:
+            return None
+
+        if isinstance(config, dict):
+            try:
+                return SegmenterConfig(**config)
+            except ValidationError as e:
+                logger.error(f"Invalid segmenter_config: {e}")
+                self._set_state(ProcessorState.FAILED)
+                raise ValidationError("Invalid segmenter_config provided.") from e
+
+        return config
+
+    def _segment_images_sync(self) -> None:
+        """
+        Synchronous implementation of image segmentation.
+
+        This method performs CPU/GPU-intensive segmentation operations.
+        Called via asyncio.to_thread() to avoid blocking the event loop.
+
+        :raises ValueError: If segmenter_config is not provided.
+        """
+        if self._segmenter_config is None:
+            error_msg = "segmenter_config must be provided when segment is True."
+            logger.error(f"Preprocessor._segment_images_sync(): {error_msg}")
+            self._set_state(ProcessorState.FAILED)
+            raise ValueError(error_msg)
+
+        logger.info("Running segmentation...")
+
+        # Store model names
+        self._segmentation_models = self._segmenter_config.model_names
+
+        # Create segmenter (GPU-accelerated if available)
+        segmenter = SegmenterYOLO(config=self._segmenter_config)
+
+        # Convert to raw XML for segmentation
         segmented_dataset = self.converter.convert(
-            export_mode='raw_xml',
+            export_mode=ExportMode.RAW_XML.value,
             split_train=None,
-            allow_empty=self.allow_empty_lines,
-            batch_size=self.batch_size,
+            allow_empty=self._config.allow_empty_lines,
+            batch_size=self._config.batch_size,
         )
-        self.dataset = segmenter.segment_dataset(segmented_dataset, new_column_name='xml')
-        self.converter = self.create_xmlconverter()
 
-    async def preprocess(self) -> None:
+        # Segment the dataset
+        self._dataset = segmenter.segment_dataset(
+            segmented_dataset,
+            new_column_name='xml'
+        )
+
+        # Reset converter to use new dataset
+        self._converter = None
+
+        logger.info("Segmentation completed.")
+
+    async def _convert_and_upload(self) -> str:
         """
-        Perform preprocessing steps: Create Dataset with XmlConverter and push it to the HuggingFace hub.
+        Convert dataset and upload to HuggingFace.
+
+        Runs in thread pool to avoid blocking the event loop.
+
+        :return: URL of the uploaded dataset.
         """
-        dataset = self.converter.convert(
-            export_mode=self.export_mode,
-            split_train=self.split_train_ratio,
-            split_seed=self.split_seed,
-            split_shuffle=self.split_shuffle,
-            mask_crop=self.crop,
-            min_width=self.min_width_line,
-            min_height=self.min_height_line,
-            allow_empty=self.allow_empty_lines,
-            batch_size=self.batch_size,
+        logger.info(f"Converting and uploading with export_mode={self._config.export_mode}")
+
+        # Run conversion/upload in thread pool (non-blocking)
+        repo_url = await asyncio.to_thread(self._convert_and_upload_sync)
+
+        return repo_url
+
+    def _convert_and_upload_sync(self) -> str:
+        """
+        Synchronous implementation of convert and upload.
+
+        This method performs CPU/I/O-intensive operations.
+        Called via asyncio.to_thread() to avoid blocking the event loop.
+
+        :return: URL of the uploaded dataset repository.
+        """
+        return self.converter.convert_and_upload(
+            repo_id=self._config.huggingface_repo_name,
+            export_mode=self._config.export_mode,
+            token=self._config.huggingface_token,
+            private=self._config.huggingface_repo_private,
+            split_train=self._config.split_train_ratio,
+            split_seed=self._config.split_seed,
+            split_shuffle=self._config.split_shuffle,
+            mask_crop=self._config.crop,
+            min_width=self._config.min_width_line,
+            min_height=self._config.min_height_line,
+            allow_empty=self._config.allow_empty_lines,
+            batch_size=self._config.batch_size,
+            append=self._config.append
         )
 
-        # Upload to HuggingFace Hub
-        repo_url = self.converter.upload_to_hub(
-            dataset=dataset,
-            repo_id=self.huggingface_repo_name,
-            token=self.huggingface_token,
-            private=self.huggingface_repo_private,
-        )
-        logger.info(f"Success! Dataset available at: {repo_url}")
+    def _set_state(self, state: ProcessorState) -> None:
+        """
+        Set the processor state.
 
+        :param state: New state to set.
+        """
+        self._state = state
+        logger.debug(f"Preprocessor state changed to: {state.value}")
+
+
+# ===============================================================================
+# CONCRETE IMPLEMENTATIONS
+# ===============================================================================
 
 class ZipPreprocessor(Preprocessor):
     """
-    Preprocess zip-files from a local directory or URL.
+    Preprocessor for ZIP files (local or remote).
+
+    Supports:
+    - Local ZIP files
+    - Remote ZIP files (HTTP/HTTPS URLs)
+    - Automatic source type detection
     """
 
     def __init__(
             self,
             input_path: str,
-            huggingface_repo_name: str,
-            **kwargs
+            config: PreprocessorConfig,
+            converter_factory: Optional[ConverterFactory] = None
     ) -> None:
         """
-        Initialize parameters for file preprocessing.
+        Initialize ZIP preprocessor.
 
-        :param input_path: URL to fetch the ZIP-File or local path to the ZIP-File.
-        :param huggingface_repo_name: Name of the Hugging Face repository, \
-            where the result is pushed to.
-        :param kwargs: Additional keyword arguments for the \
-            base Preprocessor class arguments with default values.
+        :param input_path: Path or URL to ZIP file.
+        :param config: Preprocessor configuration.
+        :param converter_factory: Optional converter factory (for DI/testing).
         """
-        self.input_path: str = input_path
-
-        super().__init__(huggingface_repo_name, **kwargs)
+        self._input_path = input_path
+        super().__init__(config, converter_factory)
 
     def create_xmlconverter(self) -> XmlConverter:
         """
-        Create an XmlConverter.
+        Create XmlConverter for ZIP source using factory.
 
-        :return: An instance of XmlConverter.
+        :return: Configured XmlConverter instance.
         """
-        parser = XmlParser()
+        logger.info(f"Creating XmlConverter for ZIP: {self._input_path}")
 
-        logger.info("Creating XmlConverter for input path: %s", self.input_path)
-        if parser:
-            logger.info("XmlParser created successfully.")
-        else:
-            logger.error("Failed to create XmlParser.")
-            self.state = 'failed'
-            raise ValueError("Failed to create XmlParser.")
-        if self.dataset is not None:
-            logger.info("Using dataset for XML conversion.")
-            source_type = 'huggingface'
-            gen_func = parser.parse_dataset
-            gen_kwargs = {'dataset': self.dataset, 'parse_xml': self.parse_xml}
-        else:
-            logger.info("Using dataset from ZIP file for XML conversion.")
-            if self.input_path.startswith('http://') or self.input_path.startswith('https://'):
-                source_type = 'zip_url'
-            else:
-                source_type = 'zip'
-            gen_func = parser.parse_zip
-            gen_kwargs = {'zip_path': self.input_path, 'parse_xml': self.parse_xml}
-        converter = XmlConverter(
-            gen_func=gen_func,
-            gen_kwargs=gen_kwargs,
-            source_type=source_type,
-            source_path=self.input_path
-        )
-        if converter is not None:
+        try:
+            converter = self._converter_factory.create_zip_converter(
+                zip_path=self._input_path,
+                parse_xml=self._config.requires_xml_parsing,
+                dataset=self._dataset
+            )
             logger.info("XmlConverter created successfully.")
             return converter
-        else:
-            logger.error("Failed to create XmlConverter.")
-            self.state = 'failed'
-            raise ValueError("Failed to create XmlConverter.")
+        except Exception as e:
+            logger.error(f"Failed to create XmlConverter: {e}")
+            self._set_state(ProcessorState.FAILED)
+            raise ValueError(f"Failed to create XmlConverter: {e}") from e
 
-    async def preprocess(self) -> None:
+    async def preprocess(self) -> str:
         """
-        Perform preprocessing steps on files in the input directory 
-        and save to the output directory.
+        Preprocess ZIP file.
+
+        This method is async to support non-blocking execution in FastAPI and
+        other async frameworks.
+
+        :return: URL of uploaded dataset.
         """
-        logger.info("Preprocessing/converting %s", self.input_path)
-        await super().preprocess()
-        logger.info("Preprocessing/converting %s completed.", self.input_path)
+        logger.info(f"Preprocessing ZIP: {self._input_path}")
+        repo_url = await super().preprocess()
+        logger.info(f"Preprocessing of {self._input_path} completed.")
+        return repo_url
 
 
 class HuggingFacePreprocessor(Preprocessor):
     """
-    Preprocess files from a Hugging Face dataset.
+    Preprocessor for HuggingFace datasets.
+
+    Supports processing existing HuggingFace datasets and uploading
+    the processed version to a new or existing repository.
     """
 
     def __init__(
             self,
             input_path: str,
-            huggingface_repo_name: str,
-            **kwargs
+            config: PreprocessorConfig,
+            converter_factory: Optional[ConverterFactory] = None
     ) -> None:
         """
-        Initialize parameters for file preprocessing.
+        Initialize HuggingFace preprocessor.
 
-        :param input_path: Hugging Face dataset ID to fetch the XML files from.
-        :param huggingface_repo_name: Name of the Hugging Face repository, \
-            where the result is pushed to.
-        :param kwargs: Additional keyword arguments for the base Preprocessor class \
-            arguments with default values.
+        :param input_path: HuggingFace repository ID (e.g., 'username/dataset').
+        :param config: Preprocessor configuration.
+        :param converter_factory: Optional converter factory (for DI/testing).
         """
-        self.input_path: str = input_path
-
-        super().__init__(huggingface_repo_name, **kwargs)
+        self._input_path = input_path
+        super().__init__(config, converter_factory)
 
     def create_xmlconverter(self) -> XmlConverter:
         """
-        Create an XmlConverter with LineExporter.
+        Create XmlConverter for HuggingFace source using factory.
 
-        :return: An instance of XmlConverter configured with LineExporter.
+        :return: Configured XmlConverter instance.
         """
-        parser = XmlParser()
-        logger.info(f"Creating XmlConverter for input path: {self.input_path}")
-        if parser:
-            logger.info("XmlParser created successfully.")
-        else:
-            logger.error("Failed to create XmlParser.")
-            self.state = 'failed'
-            raise ValueError("Failed to create XmlParser.")
-        source_type = 'huggingface'
-        gen_func = parser.parse_dataset
+        logger.info(f"Creating XmlConverter for HuggingFace: {self._input_path}")
 
-        if self.dataset is not None:
-            logger.info("Using existing dataset for XML conversion.")
-            gen_kwargs = {'dataset': self.dataset, 'token': self.huggingface_token, 'parse_xml': self.parse_xml}
-        else:
-            logger.info("Using dataset from Huggingface Hub for XML conversion.")
-            gen_kwargs = {'dataset': self.input_path, 'token': self.huggingface_token, 'parse_xml': self.parse_xml}
-
-        converter = XmlConverter(
-            gen_func=gen_func,
-            gen_kwargs=gen_kwargs,
-            source_type=source_type,
-            source_path=self.input_path
-        )
-        if converter is not None:
+        try:
+            converter = self._converter_factory.create_huggingface_converter(
+                repo_id=self._input_path,
+                token=self._config.huggingface_token,
+                parse_xml=self._config.requires_xml_parsing,
+                dataset=self._dataset
+            )
             logger.info("XmlConverter created successfully.")
             return converter
-        else:
-            logger.error("Failed to create XmlConverter.")
-            self.state = 'failed'
-            raise ValueError("Failed to create XmlConverter.")
+        except Exception as e:
+            logger.error(f"Failed to create XmlConverter: {e}")
+            self._set_state(ProcessorState.FAILED)
+            raise ValueError(f"Failed to create XmlConverter: {e}") from e
 
-    async def preprocess(self) -> None:
+    async def preprocess(self) -> str:
         """
-        Perform preprocessing steps on files in the input directory and save to the output directory.
+        Preprocess HuggingFace dataset.
+
+        This method is async to support non-blocking execution in FastAPI and
+        other async frameworks.
+
+        :return: URL of uploaded dataset.
         """
-        logger.info(f"Preprocessing/converting {self.input_path}")
-        await super().preprocess()
-        logger.info(f"Preprocessing/converting {self.input_path} completed.")
+        logger.info(f"Preprocessing HuggingFace dataset: {self._input_path}")
+        repo_url = await super().preprocess()
+        logger.info(f"Preprocessing of {self._input_path} completed.")
+        return repo_url
+
+
+# ===============================================================================
+# BUILDER PATTERN (Optional - for easier usage)
+# ===============================================================================
+
+class PreprocessorBuilder:
+    """
+    Builder for creating Preprocessor instances with fluent API.
+
+    Makes it easier to create preprocessors with complex configurations
+    without needing to manually create PreprocessorConfig objects.
+
+    Example:
+        preprocessor = (PreprocessorBuilder("username/output-dataset")
+            .with_token("hf_token")
+            .with_export_mode("line")
+            .with_segmentation(segmenter_config)
+            .with_split(0.8)
+            .build_for_zip("data.zip"))
+    """
+
+    def __init__(self, huggingface_repo_name: str):
+        """
+        Initialize builder.
+
+        :param huggingface_repo_name: Target HuggingFace repository.
+        """
+        self._config_dict: Dict[str, Any] = {
+            'huggingface_repo_name': huggingface_repo_name
+        }
+
+    def with_token(self, token: str) -> 'PreprocessorBuilder':
+        """
+        Set HuggingFace token.
+
+        :param token: HuggingFace access token.
+        :return: Builder instance for chaining.
+        """
+        self._config_dict['huggingface_token'] = token
+        return self
+
+    def with_export_mode(self, mode: str) -> 'PreprocessorBuilder':
+        """
+        Set export mode.
+
+        :param mode: Export mode ('line', 'region', 'text', 'window', 'raw_xml').
+        :return: Builder instance for chaining.
+        """
+        self._config_dict['export_mode'] = mode
+        return self
+
+    def with_crop(self, crop: bool = True) -> 'PreprocessorBuilder':
+        """
+        Enable image cropping.
+
+        :param crop: Whether to crop images.
+        :return: Builder instance for chaining.
+        """
+        self._config_dict['crop'] = crop
+        return self
+
+    def with_segmentation(
+            self,
+            segmenter_config: Union[SegmenterConfig, dict]
+    ) -> 'PreprocessorBuilder':
+        """
+        Enable image segmentation.
+
+        :param segmenter_config: Segmenter configuration object or dict.
+        :return: Builder instance for chaining.
+        """
+        self._config_dict['segment'] = True
+        self._config_dict['segmenter_config'] = segmenter_config
+        return self
+
+    def with_split(
+            self,
+            ratio: float,
+            seed: int = 42,
+            shuffle: bool = True
+    ) -> 'PreprocessorBuilder':
+        """
+        Configure dataset splitting.
+
+        :param ratio: Training data ratio (0.0-1.0).
+        :param seed: Random seed for reproducibility.
+        :param shuffle: Whether to shuffle before splitting.
+        :return: Builder instance for chaining.
+        """
+        self._config_dict['split_train_ratio'] = ratio
+        self._config_dict['split_seed'] = seed
+        self._config_dict['split_shuffle'] = shuffle
+        return self
+
+    def with_line_filtering(
+            self,
+            min_width: Optional[int] = None,
+            min_height: Optional[int] = None
+    ) -> 'PreprocessorBuilder':
+        """
+        Configure line filtering.
+
+        :param min_width: Minimum line width in pixels.
+        :param min_height: Minimum line height in pixels.
+        :return: Builder instance for chaining.
+        """
+        if min_width is not None:
+            self._config_dict['min_width_line'] = min_width
+        if min_height is not None:
+            self._config_dict['min_height_line'] = min_height
+        return self
+
+    def with_batch_size(self, batch_size: int) -> 'PreprocessorBuilder':
+        """
+        Set batch size for processing.
+
+        :param batch_size: Batch size for dataset operations.
+        :return: Builder instance for chaining.
+        """
+        self._config_dict['batch_size'] = batch_size
+        return self
+
+    def private(self, is_private: bool = True) -> 'PreprocessorBuilder':
+        """
+        Set repository privacy.
+
+        :param is_private: Whether the output repository should be private.
+        :return: Builder instance for chaining.
+        """
+        self._config_dict['huggingface_repo_private'] = is_private
+        return self
+
+    def append(self, should_append: bool = True) -> 'PreprocessorBuilder':
+        """
+        Set append mode.
+
+        :param should_append: Whether to append to existing dataset.
+        :return: Builder instance for chaining.
+        """
+        self._config_dict['append'] = should_append
+        return self
+
+    def build_for_zip(self, zip_path: str) -> ZipPreprocessor:
+        """
+        Build a ZipPreprocessor.
+
+        :param zip_path: Path or URL to ZIP file.
+        :return: Configured ZipPreprocessor instance.
+        """
+        config = PreprocessorConfig(**self._config_dict)
+        return ZipPreprocessor(zip_path, config)
+
+    def build_for_huggingface(self, repo_id: str) -> HuggingFacePreprocessor:
+        """
+        Build a HuggingFacePreprocessor.
+
+        :param repo_id: HuggingFace repository ID.
+        :return: Configured HuggingFacePreprocessor instance.
+        """
+        config = PreprocessorConfig(**self._config_dict)
+        return HuggingFacePreprocessor(repo_id, config)
