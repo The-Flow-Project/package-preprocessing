@@ -198,3 +198,6 @@ Temporary Items
 # tmp test data
 tmp_data
 data
+
+# Is handeled by pyproject.toml
+requirements.txt
