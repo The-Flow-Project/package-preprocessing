@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flow_preprocessing"
-version = "0.6.0"
+version = "0.6.1"
 description = "Preprocessing Package for the Flow Project (flow-project.net)"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
@@ -67,7 +67,7 @@ Repository = "https://github.com/The-Flow-Project/package-preprocessing"
 
 [tool.uv.sources]
 flow-segmenter = { git = "https://github.com/The-Flow-Project/package-segmenter", rev = "main" }
-pagexml-hf = { git = "https://github.com/The-Flow-Project/pagexml-hf", tag = "v0.6.0+fork.1" }
+pagexml-hf = { git = "https://github.com/The-Flow-Project/pagexml-hf" }
 
 [tool.mypy]
 disable_error_code = ["import-untyped"]
