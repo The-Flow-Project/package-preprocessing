@@ -12,8 +12,11 @@ from .preprocessing_logic.preprocess import (
     PreprocessorBuilder,
 )
 
+from .preprocessing_logic.config import PreprocessorConfig
+
 __all__ = [
     "ZipPreprocessor",
     "HuggingFacePreprocessor",
     "PreprocessorBuilder",
+    "PreprocessorConfig",
 ]
