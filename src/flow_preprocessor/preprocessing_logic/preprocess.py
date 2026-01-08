@@ -210,7 +210,7 @@ class Preprocessor(ABC):
         # Convert to raw XML for segmentation
         segmented_dataset = self.converter.convert(
             export_mode=ExportMode.RAW_XML.value,
-            split_train=None,
+            # default: split_train=None,
             allow_empty=self._config.allow_empty_lines,
             batch_size=self._config.batch_size,
         )
@@ -251,10 +251,10 @@ class Preprocessor(ABC):
         :return: URL of the uploaded dataset repository.
         """
         return self.converter.convert_and_upload(
-            repo_id=self._config.huggingface_repo_name,
+            repo_id=self._config.huggingface_target_repo_name,
             export_mode=self._config.export_mode,
             token=self._config.huggingface_token,
-            private=self._config.huggingface_repo_private,
+            private=self._config.huggingface_target_repo_private,
             split_train=self._config.split_train_ratio,
             split_seed=self._config.split_seed,
             split_shuffle=self._config.split_shuffle,
@@ -423,14 +423,14 @@ class PreprocessorBuilder:
             .build_for_zip("data.zip"))
     """
 
-    def __init__(self, huggingface_repo_name: str):
+    def __init__(self, huggingface_target_repo_name: str):
         """
         Initialize builder.
 
-        :param huggingface_repo_name: Target HuggingFace repository.
+        :param huggingface_target_repo_name: Target HuggingFace repository.
         """
         self._config_dict: Dict[str, Any] = {
-            'huggingface_repo_name': huggingface_repo_name
+            'huggingface_target_repo_name': huggingface_target_repo_name
         }
 
     def with_token(self, token: str) -> 'PreprocessorBuilder':
@@ -531,7 +531,7 @@ class PreprocessorBuilder:
         :param is_private: Whether the output repository should be private.
         :return: Builder instance for chaining.
         """
-        self._config_dict['huggingface_repo_private'] = is_private
+        self._config_dict['huggingface_target_repo_private'] = is_private
         return self
 
     def append(self, should_append: bool = True) -> 'PreprocessorBuilder':

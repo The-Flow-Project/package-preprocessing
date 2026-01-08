@@ -24,7 +24,7 @@ from flow_preprocessor.preprocessing_logic.config import PreprocessorConfig
 
 # Create configuration
 config = PreprocessorConfig(
-    huggingface_repo_name="username/dataset-name",
+    huggingface_target_repo_name="username/dataset-name",
     huggingface_token="your_hf_token",
     export_mode="line",
     min_width_line=40,

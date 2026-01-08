@@ -50,11 +50,11 @@ class PreprocessorConfig:
     Uses dataclass for automatic __init__, __repr__, and type hints.
     """
     # Required parameters
-    huggingface_repo_name: str
+    huggingface_target_repo_name: str
 
     # HuggingFace parameters
     huggingface_token: Optional[str] = None
-    huggingface_repo_private: bool = False
+    huggingface_target_repo_private: bool = False
     append: bool = False
 
     # Export configuration
