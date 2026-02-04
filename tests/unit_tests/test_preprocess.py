@@ -31,17 +31,17 @@ class TestPreprocessorConfig:
     def test_valid_config(self):
         """Test creation of valid configuration."""
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             export_mode="line"
         )
-        assert config.huggingface_repo_name == "test/dataset"
+        assert config.huggingface_target_repo_name == "test/dataset"
         assert config.export_mode == "line"
 
     def test_invalid_export_mode(self):
         """Test that invalid export mode raises error."""
         with pytest.raises(ValueError, match="Invalid export_mode"):
             PreprocessorConfig(
-                huggingface_repo_name="test/dataset",
+                huggingface_target_repo_name="test/dataset",
                 export_mode="invalid_mode"
             )
 
@@ -49,7 +49,7 @@ class TestPreprocessorConfig:
         """Test that negative line dimensions raise error."""
         with pytest.raises(ValueError, match="positive integer"):
             PreprocessorConfig(
-                huggingface_repo_name="test/dataset",
+                huggingface_target_repo_name="test/dataset",
                 min_width_line=-10
             )
 
@@ -57,20 +57,20 @@ class TestPreprocessorConfig:
         """Test that invalid split ratio raises error."""
         with pytest.raises(ValueError, match="between 0.0 and 1.0"):
             PreprocessorConfig(
-                huggingface_repo_name="test/dataset",
+                huggingface_target_repo_name="test/dataset",
                 split_train_ratio=1.5
             )
 
     def test_requires_xml_parsing(self):
         """Test XML parsing requirement detection."""
         config_line = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             export_mode="line"
         )
         assert config_line.requires_xml_parsing is True
 
         config_raw = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             export_mode="raw_xml"
         )
         assert config_raw.requires_xml_parsing is False
@@ -143,7 +143,7 @@ class TestZipPreprocessor:
     def config(self):
         """Create test configuration."""
         return PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             export_mode="line"
         )
 
@@ -196,7 +196,7 @@ class TestZipPreprocessor:
         from flow_segmenter import SegmenterConfig
 
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             export_mode="line",
             segment=True,
             segmenter_config=SegmenterConfig(model_names="yolov8n")
@@ -249,7 +249,7 @@ class TestHuggingFacePreprocessor:
     def config(self):
         """Create test configuration."""
         return PreprocessorConfig(
-            huggingface_repo_name="test/output-dataset",
+            huggingface_target_repo_name="test/output-dataset",
             huggingface_token="hf_xxx",
             export_mode="region"
         )
@@ -307,7 +307,7 @@ class TestPreprocessorBuilder:
         )
 
         assert isinstance(preprocessor, ZipPreprocessor)
-        assert preprocessor.config.huggingface_repo_name == "test/dataset"
+        assert preprocessor.config.huggingface_target_repo_name == "test/dataset"
 
     def test_builder_with_options(self):
         """Test builder with various options."""
@@ -333,7 +333,7 @@ class TestPreprocessorBuilder:
         assert config.split_train_ratio == 0.8
         assert config.min_width_line == 50
         assert config.min_height_line == 20
-        assert config.huggingface_repo_private is True
+        assert config.huggingface_target_repo_private is True
 
     def test_builder_for_huggingface(self):
         """Test builder for HuggingFace preprocessor."""
@@ -360,7 +360,7 @@ class TestIntegration:
         # For now, we use mocks
 
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             export_mode="line",
             crop=True,
             batch_size=32

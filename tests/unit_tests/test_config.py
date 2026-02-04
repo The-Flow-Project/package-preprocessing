@@ -19,10 +19,10 @@ class TestPreprocessorConfig:
     def test_minimal_config(self):
         """Test creation with only required parameters."""
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset"
+            huggingface_target_repo_name="test/dataset"
         )
 
-        assert config.huggingface_repo_name == "test/dataset"
+        assert config.huggingface_target_repo_name == "test/dataset"
         assert config.export_mode == "line"  # Default
         assert config.batch_size == 32  # Default
         assert config.crop is False  # Default
@@ -34,9 +34,9 @@ class TestPreprocessorConfig:
         segmenter_config = SegmenterConfig(model_names="yolov8n")
 
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             huggingface_token="hf_xxx",
-            huggingface_repo_private=True,
+            huggingface_target_repo_private=True,
             append=True,
             export_mode="region",
             crop=True,
@@ -51,9 +51,9 @@ class TestPreprocessorConfig:
             segmenter_config=segmenter_config
         )
 
-        assert config.huggingface_repo_name == "test/dataset"
+        assert config.huggingface_target_repo_name == "test/dataset"
         assert config.huggingface_token == "hf_xxx"
-        assert config.huggingface_repo_private is True
+        assert config.huggingface_target_repo_private is True
         assert config.append is True
         assert config.export_mode == "region"
         assert config.crop is True
@@ -73,7 +73,7 @@ class TestPreprocessorConfig:
         """Test all valid export modes."""
         for mode in ExportMode:
             config = PreprocessorConfig(
-                huggingface_repo_name="test/dataset",
+                huggingface_target_repo_name="test/dataset",
                 export_mode=mode.value
             )
             assert config.export_mode == mode.value
@@ -82,7 +82,7 @@ class TestPreprocessorConfig:
         """Test that invalid export mode raises ValueError."""
         with pytest.raises(ValueError, match="Invalid export_mode"):
             PreprocessorConfig(
-                huggingface_repo_name="test/dataset",
+                huggingface_target_repo_name="test/dataset",
                 export_mode="invalid_mode"
             )
 
@@ -90,7 +90,7 @@ class TestPreprocessorConfig:
         """Test that typo in export mode raises ValueError."""
         with pytest.raises(ValueError, match="Invalid export_mode: 'lien'"):
             PreprocessorConfig(
-                huggingface_repo_name="test/dataset",
+                huggingface_target_repo_name="test/dataset",
                 export_mode="lien"  # Typo
             )
 
@@ -99,7 +99,7 @@ class TestPreprocessorConfig:
     def test_valid_line_dimensions(self):
         """Test valid line dimensions."""
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             min_width_line=100,
             min_height_line=50
         )
@@ -110,7 +110,7 @@ class TestPreprocessorConfig:
         """Test that negative min_width raises ValueError."""
         with pytest.raises(ValueError, match="positive integer"):
             PreprocessorConfig(
-                huggingface_repo_name="test/dataset",
+                huggingface_target_repo_name="test/dataset",
                 min_width_line=-10
             )
 
@@ -118,7 +118,7 @@ class TestPreprocessorConfig:
         """Test that zero min_width raises ValueError."""
         with pytest.raises(ValueError, match="positive integer"):
             PreprocessorConfig(
-                huggingface_repo_name="test/dataset",
+                huggingface_target_repo_name="test/dataset",
                 min_width_line=0
             )
 
@@ -126,14 +126,14 @@ class TestPreprocessorConfig:
         """Test that negative min_height raises ValueError."""
         with pytest.raises(ValueError, match="positive integer"):
             PreprocessorConfig(
-                huggingface_repo_name="test/dataset",
+                huggingface_target_repo_name="test/dataset",
                 min_height_line=-5
             )
 
     def test_none_line_dimensions(self):
         """Test that None line dimensions are valid."""
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             min_width_line=None,
             min_height_line=None
         )
@@ -147,7 +147,7 @@ class TestPreprocessorConfig:
         valid_ratios = [0.1, 0.5, 0.8, 0.9, 1.0]
         for ratio in valid_ratios:
             config = PreprocessorConfig(
-                huggingface_repo_name="test/dataset",
+                huggingface_target_repo_name="test/dataset",
                 split_train_ratio=ratio
             )
             assert config.split_train_ratio == ratio
@@ -156,7 +156,7 @@ class TestPreprocessorConfig:
         """Test that split ratio > 1.0 raises ValueError."""
         with pytest.raises(ValueError, match="between 0.0 and 1.0"):
             PreprocessorConfig(
-                huggingface_repo_name="test/dataset",
+                huggingface_target_repo_name="test/dataset",
                 split_train_ratio=1.5
             )
 
@@ -164,7 +164,7 @@ class TestPreprocessorConfig:
         """Test that split ratio = 0.0 raises ValueError."""
         with pytest.raises(ValueError, match="between 0.0 and 1.0"):
             PreprocessorConfig(
-                huggingface_repo_name="test/dataset",
+                huggingface_target_repo_name="test/dataset",
                 split_train_ratio=0.0
             )
 
@@ -172,14 +172,14 @@ class TestPreprocessorConfig:
         """Test that negative split ratio raises ValueError."""
         with pytest.raises(ValueError, match="between 0.0 and 1.0"):
             PreprocessorConfig(
-                huggingface_repo_name="test/dataset",
+                huggingface_target_repo_name="test/dataset",
                 split_train_ratio=-0.5
             )
 
     def test_none_split_ratio(self):
         """Test that None split ratio is valid (no split)."""
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             split_train_ratio=None
         )
         assert config.split_train_ratio is None
@@ -190,7 +190,7 @@ class TestPreprocessorConfig:
         """Test that segment=True without config raises ValueError."""
         with pytest.raises(ValueError, match="segmenter_config must be provided"):
             PreprocessorConfig(
-                huggingface_repo_name="test/dataset",
+                huggingface_target_repo_name="test/dataset",
                 segment=True,
                 segmenter_config=None
             )
@@ -202,7 +202,7 @@ class TestPreprocessorConfig:
         segmenter_config = SegmenterConfig(model_names="yolov8n")
 
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             segment=True,
             segmenter_config=segmenter_config
         )
@@ -213,7 +213,7 @@ class TestPreprocessorConfig:
     def test_no_segmentation(self):
         """Test segment=False with no config is valid."""
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             segment=False,
             segmenter_config=None
         )
@@ -226,7 +226,7 @@ class TestPreprocessorConfig:
     def test_requires_xml_parsing_line_mode(self):
         """Test that line mode requires XML parsing."""
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             export_mode="line"
         )
         assert config.requires_xml_parsing is True
@@ -234,7 +234,7 @@ class TestPreprocessorConfig:
     def test_requires_xml_parsing_region_mode(self):
         """Test that region mode requires XML parsing."""
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             export_mode="region"
         )
         assert config.requires_xml_parsing is True
@@ -242,7 +242,7 @@ class TestPreprocessorConfig:
     def test_requires_xml_parsing_text_mode(self):
         """Test that text mode requires XML parsing."""
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             export_mode="text"
         )
         assert config.requires_xml_parsing is True
@@ -250,7 +250,7 @@ class TestPreprocessorConfig:
     def test_requires_xml_parsing_window_mode(self):
         """Test that window mode requires XML parsing."""
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             export_mode="window"
         )
         assert config.requires_xml_parsing is True
@@ -258,7 +258,7 @@ class TestPreprocessorConfig:
     def test_requires_xml_parsing_raw_xml_mode(self):
         """Test that raw_xml mode does NOT require XML parsing."""
         config = PreprocessorConfig(
-            huggingface_repo_name="test/dataset",
+            huggingface_target_repo_name="test/dataset",
             export_mode="raw_xml"
         )
         assert config.requires_xml_parsing is False

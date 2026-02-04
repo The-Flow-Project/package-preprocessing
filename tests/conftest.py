@@ -5,7 +5,7 @@ This file contains fixtures that are available to all tests.
 """
 
 import pytest
-from unittest.mock import Mock, AsyncMock
+from unittest.mock import Mock
 from pathlib import Path
 
 import datasets
@@ -27,7 +27,7 @@ def test_data_dir():
 
 @pytest.fixture(scope="session")
 def test_images_dir(test_data_dir):
-    """Get test images directory."""
+    """Get test images' directory."""
     return test_data_dir / "images"
 
 
@@ -39,7 +39,7 @@ def test_images_dir(test_data_dir):
 def basic_config():
     """Create a basic preprocessor configuration."""
     return PreprocessorConfig(
-        huggingface_repo_name="test/dataset",
+        huggingface_target_repo_name="test/dataset",
         export_mode="line",
         batch_size=32
     )
@@ -51,7 +51,7 @@ def config_with_segmentation():
     from flow_segmenter import SegmenterConfig
 
     return PreprocessorConfig(
-        huggingface_repo_name="test/dataset",
+        huggingface_target_repo_name="test/dataset",
         export_mode="line",
         segment=True,
         segmenter_config=SegmenterConfig(model_names="yolov8n")
@@ -62,7 +62,7 @@ def config_with_segmentation():
 def config_with_splitting():
     """Create configuration with train/test split."""
     return PreprocessorConfig(
-        huggingface_repo_name="test/dataset",
+        huggingface_target_repo_name="test/dataset",
         export_mode="line",
         split_train_ratio=0.8,
         split_seed=42,
@@ -74,7 +74,7 @@ def config_with_splitting():
 def config_with_filtering():
     """Create configuration with line filtering."""
     return PreprocessorConfig(
-        huggingface_repo_name="test/dataset",
+        huggingface_target_repo_name="test/dataset",
         export_mode="line",
         min_width_line=50,
         min_height_line=20,
@@ -100,7 +100,7 @@ def mock_xml_converter():
     """Create a mock XmlConverter."""
     converter = Mock(spec=XmlConverter)
     converter.convert = Mock(return_value=Mock(spec=datasets.Dataset))
-    converter.convert_and_upload = AsyncMock(return_value="https://huggingface.co/test/dataset")
+    converter.convert_and_upload = Mock(return_value="https://huggingface.co/test/dataset")
     return converter
 
 

@@ -11,7 +11,6 @@ Python package for preprocessing PageXML datasets for OCR/HTR tasks with Hugging
 - ✅ Train/test splitting
 - ✅ Line filtering by dimensions
 - ✅ Direct upload to HuggingFace Hub
-- ✅ FastAPI-compatible (non-blocking async with `asyncio.to_thread()`)
 - ✅ GPU support with optimal performance
 
 ## Quick Start
@@ -32,7 +31,7 @@ config = PreprocessorConfig(
 
 # Create and run preprocessor (async)
 preprocessor = ZipPreprocessor("path/to/data.zip", config)
-repo_url = await preprocessor.preprocess()
+repo_url = preprocessor.preprocess()
 print(f"Dataset available at: {repo_url}")
 ```
 
@@ -48,7 +47,7 @@ preprocessor = (PreprocessorBuilder("username/dataset-name")
     .with_line_filtering(min_width=40)
     .build_for_zip("path/to/data.zip"))
 
-repo_url = await preprocessor.preprocess()
+repo_url = preprocessor.preprocess()
 print(f"Dataset available at: {repo_url}")
 ```
 

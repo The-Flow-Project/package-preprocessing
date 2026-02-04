@@ -2,7 +2,6 @@
 Flow Preprocessor - Main Preprocessing Module
 
 This module provides preprocessing functionality for PageXML datasets with:
-- Async/await support for FastAPI (using asyncio.to_thread for non-blocking)
 - Dependency Injection pattern
 - Factory Pattern for converter creation
 - Configuration object pattern
@@ -12,7 +11,6 @@ This module provides preprocessing functionality for PageXML datasets with:
 
 from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any, Union, List
-import asyncio
 import datasets
 from pydantic import ValidationError
 
@@ -26,6 +24,7 @@ from flow_preprocessor.preprocessing_logic.config import (
     ExportMode,
 )
 from flow_preprocessor.preprocessing_logic.converter_factory import ConverterFactory
+from flow_preprocessor.utils.url_validator import validate_url
 
 
 # ===============================================================================
@@ -34,12 +33,11 @@ from flow_preprocessor.preprocessing_logic.converter_factory import ConverterFac
 
 class Preprocessor(ABC):
     """
-    Base preprocessor class with improved OOP design and async support.
+    Base preprocessor class with improved OOP design.
 
     Features:
     - Dependency Injection for better testability
     - Configuration object pattern for cleaner initialization
-    - Async/await with asyncio.to_thread() for FastAPI compatibility
     - Factory pattern for converter creation
     - Properties for encapsulation
     """
@@ -107,15 +105,11 @@ class Preprocessor(ABC):
         :return: An instance of XmlConverter.
         """
 
-    # ==================== Public Async Methods ====================
+    # ==================== Public Methods ====================
 
-    async def preprocess(self) -> str:
+    def preprocess(self) -> str:
         """
         Perform preprocessing steps: segmentation (optional) and dataset conversion/upload.
-
-        This method is async and uses asyncio.to_thread() to run CPU-intensive operations
-        in a thread pool, ensuring the async event loop is not blocked. This is essential
-        for FastAPI and other async frameworks.
 
         :return: URL of the uploaded dataset repository.
         :raises Exception: If preprocessing fails.
@@ -126,11 +120,11 @@ class Preprocessor(ABC):
             # Step 1: Segmentation (if enabled) - non-blocking
             if self._config.segment:
                 logger.info("Segmentation enabled - running segment_images()...")
-                await self.segment_images()
+                self.segment_images()
                 logger.info("Segmentation completed.")
 
             # Step 2: Convert and upload - non-blocking
-            repo_url = await self._convert_and_upload()
+            repo_url = self._convert_and_upload()
 
             self._set_state(ProcessorState.COMPLETED)
             logger.info(f"Success! Dataset available at: {repo_url}")
@@ -141,18 +135,14 @@ class Preprocessor(ABC):
             logger.error(f"Preprocessing failed: {e}")
             raise
 
-    async def segment_images(self) -> None:
+    def segment_images(self) -> None:
         """
         Segment images in the dataset using YOLO.
-
-        Runs the CPU/GPU-intensive segmentation in a thread pool to avoid blocking
-        the async event loop (important for FastAPI and other async frameworks).
 
         :raises ValueError: If segmenter_config is not provided.
         """
         try:
-            # Run segmentation in thread pool (non-blocking)
-            await asyncio.to_thread(self._segment_images_sync)
+            self._segment_images()
         except Exception as e:
             logger.error(f"Segmentation failed: {e}")
             self._set_state(ProcessorState.FAILED)
@@ -184,12 +174,9 @@ class Preprocessor(ABC):
 
         return config
 
-    def _segment_images_sync(self) -> None:
+    def _segment_images(self) -> None:
         """
         Synchronous implementation of image segmentation.
-
-        This method performs CPU/GPU-intensive segmentation operations.
-        Called via asyncio.to_thread() to avoid blocking the event loop.
 
         :raises ValueError: If segmenter_config is not provided.
         """
@@ -226,30 +213,13 @@ class Preprocessor(ABC):
 
         logger.info("Segmentation completed.")
 
-    async def _convert_and_upload(self) -> str:
-        """
-        Convert dataset and upload to HuggingFace.
-
-        Runs in thread pool to avoid blocking the event loop.
-
-        :return: URL of the uploaded dataset.
-        """
-        logger.info(f"Converting and uploading with export_mode={self._config.export_mode}")
-
-        # Run conversion/upload in thread pool (non-blocking)
-        repo_url = await asyncio.to_thread(self._convert_and_upload_sync)
-
-        return repo_url
-
-    def _convert_and_upload_sync(self) -> str:
+    def _convert_and_upload(self) -> str:
         """
         Synchronous implementation of convert and upload.
 
-        This method performs CPU/I/O-intensive operations.
-        Called via asyncio.to_thread() to avoid blocking the event loop.
-
         :return: URL of the uploaded dataset repository.
         """
+        logger.info(f"Converting and uploading with export_mode={self._config.export_mode}")
         return self.converter.convert_and_upload(
             repo_id=self._config.huggingface_target_repo_name,
             export_mode=self._config.export_mode,
@@ -302,7 +272,18 @@ class ZipPreprocessor(Preprocessor):
         :param input_path: Path or URL to ZIP file.
         :param config: Preprocessor configuration.
         :param converter_factory: Optional converter factory (for DI/testing).
+        :raises ValueError: If input_path is invalid or a URL fails validation.
         """
+        # Validate input
+        if not input_path:
+            raise ValueError("input_path cannot be empty")
+        if not isinstance(input_path, str):
+            raise TypeError("input_path must be a string")
+
+        # Validate URL if it's a remote URL
+        if input_path.startswith('http://') or input_path.startswith('https://'):
+            validate_url(input_path)
+
         self._input_path = input_path
         super().__init__(config, converter_factory)
 
@@ -327,17 +308,14 @@ class ZipPreprocessor(Preprocessor):
             self._set_state(ProcessorState.FAILED)
             raise ValueError(f"Failed to create XmlConverter: {e}") from e
 
-    async def preprocess(self) -> str:
+    def preprocess(self) -> str:
         """
         Preprocess ZIP file.
-
-        This method is async to support non-blocking execution in FastAPI and
-        other async frameworks.
 
         :return: URL of uploaded dataset.
         """
         logger.info(f"Preprocessing ZIP: {self._input_path}")
-        repo_url = await super().preprocess()
+        repo_url = super().preprocess()
         logger.info(f"Preprocessing of {self._input_path} completed.")
         return repo_url
 
@@ -388,17 +366,14 @@ class HuggingFacePreprocessor(Preprocessor):
             self._set_state(ProcessorState.FAILED)
             raise ValueError(f"Failed to create XmlConverter: {e}") from e
 
-    async def preprocess(self) -> str:
+    def preprocess(self) -> str:
         """
         Preprocess HuggingFace dataset.
-
-        This method is async to support non-blocking execution in FastAPI and
-        other async frameworks.
 
         :return: URL of uploaded dataset.
         """
         logger.info(f"Preprocessing HuggingFace dataset: {self._input_path}")
-        repo_url = await super().preprocess()
+        repo_url = super().preprocess()
         logger.info(f"Preprocessing of {self._input_path} completed.")
         return repo_url
 

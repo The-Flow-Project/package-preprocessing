@@ -9,6 +9,7 @@ import datasets
 from pagexml_hf import XmlConverter, XmlParser
 
 from flow_preprocessor.utils.logging.preprocessing_logger import logger
+from flow_preprocessor.utils.url_validator import validate_url
 
 
 class ConverterFactory:
@@ -39,6 +40,7 @@ class ConverterFactory:
         :param parse_xml: Whether to parse XML.
         :param dataset: Optional dataset to use instead of ZIP file.
         :return: Configured XmlConverter instance.
+        :raises ValueError: If zip_path is a URL that fails security validation.
         """
         if dataset is not None:
             return self._create_dataset_converter(
@@ -47,8 +49,9 @@ class ConverterFactory:
                 source_path=zip_path
             )
 
-        # Determine source type
+        # Validate URL if it's a remote URL (SSRF prevention)
         if zip_path.startswith('http://') or zip_path.startswith('https://'):
+            validate_url(zip_path)
             source_type = 'zip_url'
         else:
             source_type = 'zip'
