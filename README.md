@@ -18,8 +18,8 @@ Python package for preprocessing PageXML datasets for OCR/HTR tasks with Hugging
 ### Option 1: Using PreprocessorConfig (Explicit)
 
 ```python
-from flow_preprocessor import ZipPreprocessor
-from flow_preprocessor.preprocessing_logic.config import PreprocessorConfig
+from flow_preprocessing import ZipPreprocessor
+from flow_preprocessing.preprocessing_logic.config import PreprocessorConfig
 
 # Create configuration
 config = PreprocessorConfig(
@@ -38,14 +38,14 @@ print(f"Dataset available at: {repo_url}")
 ### Option 2: Using Builder Pattern (Fluent API)
 
 ```python
-from flow_preprocessor import PreprocessorBuilder
+from flow_preprocessing import PreprocessorBuilder
 
 # Build and run preprocessor with fluent API
 preprocessor = (PreprocessorBuilder("username/dataset-name")
-    .with_token("your_hf_token")
-    .with_export_mode("line")
-    .with_line_filtering(min_width=40)
-    .build_for_zip("path/to/data.zip"))
+                .with_token("your_hf_token")
+                .with_export_mode("line")
+                .with_line_filtering(min_width=40)
+                .build_for_zip("path/to/data.zip"))
 
 repo_url = preprocessor.preprocess()
 print(f"Dataset available at: {repo_url}")

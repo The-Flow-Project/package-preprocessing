@@ -73,4 +73,4 @@ pagexml-hf = { git = "https://github.com/The-Flow-Project/pagexml-hf", tag = "v0
 disable_error_code = ["import-untyped"]
 
 [tool.setuptools.dynamic]
-version = { attr = "flow_preprocessor.__version__.__version__" }
+version = { attr = "flow_preprocessor.__version__" }

@@ -17,14 +17,14 @@ from pydantic import ValidationError
 from pagexml_hf import XmlConverter
 from flow_segmenter import SegmenterYOLO, SegmenterConfig
 
-from flow_preprocessor.utils.logging.preprocessing_logger import logger
-from flow_preprocessor.preprocessing_logic.config import (
+from flow_preprocessing.utils.logging.preprocessing_logger import logger
+from flow_preprocessing.preprocessing_logic.config import (
     PreprocessorConfig,
     ProcessorState,
     ExportMode,
 )
-from flow_preprocessor.preprocessing_logic.converter_factory import ConverterFactory
-from flow_preprocessor.utils.url_validator import validate_url
+from flow_preprocessing.preprocessing_logic.converter_factory import ConverterFactory
+from flow_preprocessing.utils.url_validator import validate_url
 
 
 # ===============================================================================

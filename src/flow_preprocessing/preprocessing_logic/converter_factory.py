@@ -8,8 +8,8 @@ from typing import Optional
 import datasets
 from pagexml_hf import XmlConverter, XmlParser
 
-from flow_preprocessor.utils.logging.preprocessing_logger import logger
-from flow_preprocessor.utils.url_validator import validate_url
+from flow_preprocessing.utils.logging.preprocessing_logger import logger
+from flow_preprocessing.utils.url_validator import validate_url
 
 
 class ConverterFactory:
