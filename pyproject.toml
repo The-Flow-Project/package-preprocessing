@@ -67,7 +67,7 @@ Repository = "https://github.com/The-Flow-Project/package-preprocessing"
 
 [tool.uv.sources]
 flow-segmenter = { git = "https://github.com/The-Flow-Project/package-segmenter", tag = "v0.1.5" }
-pagexml-hf = { git = "https://github.com/The-Flow-Project/pagexml-hf", tag = "v0.6.1+fork.1" }
+pagexml-hf = { git = "https://github.com/The-Flow-Project/pagexml-hf", tag = "v0.7.0+fork.1" }
 
 [tool.mypy]
 disable_error_code = ["import-untyped"]
