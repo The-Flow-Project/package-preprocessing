@@ -1,13 +1,11 @@
 [build-system]
-requires = [
-    "setuptools",
-    "wheel",
-]
+requires = ["setuptools>=75.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "flow_preprocessing"
 dynamic = ["version"]
+# version = "0.6.2+fork.1"
 description = "Preprocessing Package for the Flow Project (flow-project.net)"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
@@ -23,15 +21,13 @@ license = "MIT"
 dependencies = [
     "flow-segmenter",
     "pagexml-hf",
-    "htrflow>=0.2.5",
     "lxml>=5.4.0",
-    "numpy>=1.23.0",
+    "numpy",
     "pillow>=11.2.1",
     "pydantic~=2.11.4",
     "pyyaml>=6.0.2",
     "requests>=2.32.3",
     "setuptools>=78.1.1",
-    "pytest-asyncio>=1.3.0",
 ]
 keywords = [
     "flow-project",
@@ -66,11 +62,15 @@ Homepage = "https://flow-project.net"
 Repository = "https://github.com/The-Flow-Project/package-preprocessing"
 
 [tool.uv.sources]
-flow-segmenter = { git = "https://github.com/The-Flow-Project/package-segmenter", tag = "v0.1.5" }
-pagexml-hf = { git = "https://github.com/The-Flow-Project/pagexml-hf", tag = "v0.7.0+fork.1" }
+flow-segmenter = { git = "https://github.com/The-Flow-Project/package-segmenter", tag = "v0.2.0" }
+pagexml-hf = { git = "https://github.com/The-Flow-Project/pagexml-hf", tag = "v0.7.1+fork.1" }
 
 [tool.mypy]
 disable_error_code = ["import-untyped"]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+# packages = ["flow_preprocessing"]
+
 [tool.setuptools.dynamic]
-version = { attr = "flow_preprocessor.__version__" }
+version = { attr = "flow_preprocessing.__version__" }
