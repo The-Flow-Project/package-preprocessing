@@ -15,7 +15,12 @@ import datasets
 from pydantic import ValidationError
 
 from pagexml_hf import XmlConverter
-from flow_segmenter import SegmenterYOLO, SegmenterConfig
+from flow_segmenter import (
+    # SegmenterYOLO,
+    SegmenterKrakenLinemasks,
+    SegmenterConfig,
+    SegmenterBaseConfig
+)
 
 from flow_preprocessing.utils.logging.preprocessing_logger import logger
 from flow_preprocessing.preprocessing_logic.config import (
@@ -118,7 +123,7 @@ class Preprocessor(ABC):
             self._set_state(ProcessorState.IN_PROGRESS)
 
             # Step 1: Segmentation (if enabled) - non-blocking
-            if self._config.segment:
+            if self._config.segment is not None:
                 logger.info("Segmentation enabled - running segment_images()...")
                 self.segment_images()
                 logger.info("Segmentation completed.")
@@ -137,7 +142,7 @@ class Preprocessor(ABC):
 
     def segment_images(self) -> None:
         """
-        Segment images in the dataset using YOLO.
+        Segment images in the dataset using YOLO or kraken.
 
         :raises ValueError: If segmenter_config is not provided.
         """
@@ -152,8 +157,8 @@ class Preprocessor(ABC):
 
     def _initialize_segmenter_config(
             self,
-            config: Optional[Union[SegmenterConfig, dict]]
-    ) -> Optional[SegmenterConfig]:
+            config: Optional[Union[SegmenterConfig, SegmenterBaseConfig, dict]]
+    ) -> Optional[Union[SegmenterConfig, SegmenterBaseConfig]]:
         """
         Initialize segmenter configuration.
 
@@ -164,13 +169,15 @@ class Preprocessor(ABC):
         if config is None:
             return None
 
-        if isinstance(config, dict):
-            try:
+        try:
+            if isinstance(config, dict) and self._config.segment == "yolo":
                 return SegmenterConfig(**config)
-            except ValidationError as e:
-                logger.error(f"Invalid segmenter_config: {e}")
-                self._set_state(ProcessorState.FAILED)
-                raise ValidationError("Invalid segmenter_config provided.") from e
+            elif isinstance(config, dict) and self._config.segment == "kraken":
+                return SegmenterBaseConfig(**config)
+        except ValidationError as e:
+            logger.error(f"Invalid segmenter_config: {e}")
+            self._set_state(ProcessorState.FAILED)
+            raise ValidationError("Invalid segmenter_config provided.") from e
 
         return config
 
@@ -180,6 +187,8 @@ class Preprocessor(ABC):
 
         :raises ValueError: If segmenter_config is not provided.
         """
+        segmenter = None
+
         if self._segmenter_config is None:
             error_msg = "segmenter_config must be provided when segment is True."
             logger.error(f"Preprocessor._segment_images_sync(): {error_msg}")
@@ -188,11 +197,17 @@ class Preprocessor(ABC):
 
         logger.info("Running segmentation...")
 
-        # Store model names
-        self._segmentation_models = self._segmenter_config.model_names
+        if self._config.segment == "yolo":
+            logger.info("Using YOLO for segmentation.")
+            # Store model names
+            self._segmentation_models = self._segmenter_config.model_names
 
-        # Create segmenter (GPU-accelerated if available)
-        segmenter = SegmenterYOLO(config=self._segmenter_config)
+            # Create segmenter (GPU-accelerated if available)
+            # segmenter = SegmenterYOLO(config=self._segmenter_config)
+            segmenter = None
+        elif self._config.segment == "kraken":
+            logger.info("Using Kraken for segmentation.")
+            segmenter = SegmenterKrakenLinemasks(config=self._segmenter_config)
 
         # Convert to raw XML for segmentation
         segmented_dataset = self.converter.convert(
@@ -203,10 +218,15 @@ class Preprocessor(ABC):
         )
 
         # Segment the dataset
-        self._dataset = segmenter.segment_dataset(
-            segmented_dataset,
-            new_column_name='xml'
-        )
+        if segmenter is not None:
+            self._dataset = segmenter.segment_dataset(
+                segmented_dataset,
+                new_column_name='xml'
+            )
+        else:
+            logger.error("No valid segmenter found for segmentation.")
+            self._set_state(ProcessorState.FAILED)
+            raise ValueError("Invalid segmentation method specified.")
 
         # Reset converter to use new dataset
         self._converter = None

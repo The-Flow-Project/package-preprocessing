@@ -5,10 +5,10 @@ Separates configuration from business logic following Single Responsibility Prin
 """
 
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional, Union, Literal
 from enum import Enum
 
-from flow_segmenter import SegmenterConfig
+from flow_segmenter import SegmenterConfig, SegmenterBaseConfig
 
 
 class ExportMode(Enum):
@@ -75,8 +75,8 @@ class PreprocessorConfig:
     split_shuffle: bool = True
 
     # Segmentation
-    segment: bool = False
-    segmenter_config: Optional[Union[SegmenterConfig, dict]] = None
+    segment: Literal["yolo", "kraken", None] = None
+    segmenter_config: Optional[Union[SegmenterConfig, SegmenterBaseConfig, dict]] = None
 
     def __post_init__(self):
         """Validate configuration after initialization."""
