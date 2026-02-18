@@ -14,7 +14,7 @@ from .preprocessing_logic.preprocess import (
 
 from .preprocessing_logic.config import PreprocessorConfig
 
-__version__ = "0.6.2"
+__version__ = "0.6.3"
 
 __all__ = [
     "ZipPreprocessor",
