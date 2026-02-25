@@ -16,8 +16,6 @@ from pydantic import ValidationError
 
 from pagexml_hf import XmlConverter
 from flow_segmenter import (
-    # SegmenterYOLO,
-    SegmenterKrakenLinemasks,
     SegmenterConfig,
     SegmenterBaseConfig
 )
@@ -198,14 +196,15 @@ class Preprocessor(ABC):
         logger.info("Running segmentation...")
 
         if self._config.segment == "yolo":
+            from flow_segmenter import SegmenterYolo
             logger.info("Using YOLO for segmentation.")
             # Store model names
             self._segmentation_models = self._segmenter_config.model_names
 
             # Create segmenter (GPU-accelerated if available)
-            # segmenter = SegmenterYOLO(config=self._segmenter_config)
-            segmenter = None
+            segmenter = SegmenterYolo(config=self._segmenter_config)
         elif self._config.segment == "kraken":
+            from flow_segmenter import SegmenterKrakenLinemasks
             logger.info("Using Kraken for segmentation.")
             segmenter = SegmenterKrakenLinemasks(config=self._segmenter_config)
 
@@ -221,8 +220,10 @@ class Preprocessor(ABC):
         if segmenter is not None:
             self._dataset = segmenter.segment_dataset(
                 segmented_dataset,
-                new_column_name='xml'
+                new_column_name='xml_content',
             )
+            logger.debug(f"Segmentation completed. Dataset size: {self._dataset.column_names}")
+            logger.debug(f"Segmented dataset: {segmented_dataset.column_names}")
         else:
             logger.error("No valid segmenter found for segmentation.")
             self._set_state(ProcessorState.FAILED)
