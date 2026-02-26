@@ -10,7 +10,7 @@ This module provides preprocessing functionality for PageXML datasets with:
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, Union, List
+from typing import Dict, Any, Union, List, Literal
 import datasets
 from pydantic import ValidationError
 
@@ -48,7 +48,7 @@ class Preprocessor(ABC):
     def __init__(
             self,
             config: PreprocessorConfig,
-            converter_factory: Optional[ConverterFactory] = None
+            converter_factory: ConverterFactory | None = None
     ) -> None:
         """
         Initialize the preprocessor.
@@ -59,9 +59,9 @@ class Preprocessor(ABC):
         self._config = config
         self._converter_factory = converter_factory or ConverterFactory()
         self._state = ProcessorState.INITIALIZED
-        self._dataset: Optional[datasets.Dataset] = None
-        self._converter: Optional[XmlConverter] = None
-        self._segmentation_models: Optional[Union[List[str], str]] = None
+        self._dataset: datasets.Dataset | None = None
+        self._converter: XmlConverter | None = None
+        self._segmentation_models: Union[List[str], str] | None = None
 
         # Initialize segmenter config
         self._segmenter_config = self._initialize_segmenter_config(
@@ -81,7 +81,7 @@ class Preprocessor(ABC):
         return self._config
 
     @property
-    def dataset(self) -> Optional[datasets.Dataset]:
+    def dataset(self) -> datasets.Dataset | None:
         """Get the current dataset."""
         return self._dataset
 
@@ -155,8 +155,8 @@ class Preprocessor(ABC):
 
     def _initialize_segmenter_config(
             self,
-            config: Optional[Union[SegmenterConfig, SegmenterBaseConfig, dict]]
-    ) -> Optional[Union[SegmenterConfig, SegmenterBaseConfig]]:
+            config: Union[SegmenterConfig, SegmenterBaseConfig, dict] | None
+    ) -> Union[SegmenterConfig, SegmenterBaseConfig] | None:
         """
         Initialize segmenter configuration.
 
@@ -285,7 +285,7 @@ class ZipPreprocessor(Preprocessor):
             self,
             input_path: str,
             config: PreprocessorConfig,
-            converter_factory: Optional[ConverterFactory] = None
+            converter_factory: ConverterFactory | None = None
     ) -> None:
         """
         Initialize ZIP preprocessor.
@@ -353,7 +353,7 @@ class HuggingFacePreprocessor(Preprocessor):
             self,
             input_path: str,
             config: PreprocessorConfig,
-            converter_factory: Optional[ConverterFactory] = None
+            converter_factory: ConverterFactory | None = None
     ) -> None:
         """
         Initialize HuggingFace preprocessor.
@@ -461,15 +461,25 @@ class PreprocessorBuilder:
 
     def with_segmentation(
             self,
-            segmenter_config: Union[SegmenterConfig, dict]
+            segmenter_config: Union[SegmenterConfig, SegmenterBaseConfig, dict],
+            backend: Literal["yolo", "kraken"] | None = None
     ) -> 'PreprocessorBuilder':
         """
         Enable image segmentation.
 
         :param segmenter_config: Segmenter configuration object or dict.
+        :param backend: Segmentation backend ('yolo' or 'kraken') when config is a dict.
         :return: Builder instance for chaining.
         """
-        self._config_dict['segment'] = True
+        if backend is None:
+            if isinstance(segmenter_config, SegmenterConfig):
+                backend = "yolo"
+            elif isinstance(segmenter_config, SegmenterBaseConfig):
+                backend = "kraken"
+            else:
+                raise ValueError("backend must be provided when segmenter_config is a dict")
+
+        self._config_dict['segment'] = backend
         self._config_dict['segmenter_config'] = segmenter_config
         return self
 
@@ -494,8 +504,8 @@ class PreprocessorBuilder:
 
     def with_line_filtering(
             self,
-            min_width: Optional[int] = None,
-            min_height: Optional[int] = None
+            min_width: int | None = None,
+            min_height: int | None = None
     ) -> 'PreprocessorBuilder':
         """
         Configure line filtering.

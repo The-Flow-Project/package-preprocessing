@@ -4,7 +4,6 @@ Factory for creating XmlConverter instances.
 Applies Factory Pattern and Template Method Pattern to reduce code duplication.
 """
 
-from typing import Optional
 import datasets
 from pagexml_hf import XmlConverter, XmlParser
 
@@ -19,7 +18,7 @@ class ConverterFactory:
     Centralizes converter creation logic and reduces code duplication.
     """
 
-    def __init__(self, parser: Optional[XmlParser] = None):
+    def __init__(self, parser: XmlParser | None = None):
         """
         Initialize the factory.
 
@@ -31,7 +30,7 @@ class ConverterFactory:
             self,
             zip_path: str,
             parse_xml: bool,
-            dataset: Optional[datasets.Dataset] = None
+            dataset: datasets.Dataset | None = None
     ) -> XmlConverter:
         """
         Create a converter for ZIP files.
@@ -68,9 +67,9 @@ class ConverterFactory:
     def create_huggingface_converter(
             self,
             repo_id: str,
-            token: Optional[str],
+            token: str | None,
             parse_xml: bool,
-            dataset: Optional[datasets.Dataset] = None
+            dataset: datasets.Dataset | None = None
     ) -> XmlConverter:
         """
         Create a converter for HuggingFace datasets.

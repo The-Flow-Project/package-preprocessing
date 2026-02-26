@@ -5,10 +5,9 @@ Tests configuration validation, defaults, and properties.
 """
 
 import pytest
-from flow_preprocessor.preprocessing_logic.config import (
+from flow_preprocessing.preprocessing_logic.config import (
     PreprocessorConfig,
     ExportMode,
-    DataSourceConfig,
     EXPORT_MODES_REQUIRING_XML_PARSING
 )
 
@@ -47,7 +46,7 @@ class TestPreprocessorConfig:
             split_train_ratio=0.8,
             split_seed=123,
             split_shuffle=False,
-            segment=True,
+            segment="yolo",
             segmenter_config=segmenter_config
         )
 
@@ -64,7 +63,7 @@ class TestPreprocessorConfig:
         assert config.split_train_ratio == 0.8
         assert config.split_seed == 123
         assert config.split_shuffle is False
-        assert config.segment is True
+        assert config.segment == "yolo"
         assert config.segmenter_config == segmenter_config
 
     # ==================== Export Mode Validation ====================
@@ -187,11 +186,11 @@ class TestPreprocessorConfig:
     # ==================== Segmentation Validation ====================
 
     def test_segmentation_without_config(self):
-        """Test that segment=True without config raises ValueError."""
+        """Test that segment='yolo' without config raises ValueError."""
         with pytest.raises(ValueError, match="segmenter_config must be provided"):
             PreprocessorConfig(
                 huggingface_target_repo_name="test/dataset",
-                segment=True,
+                segment="yolo",
                 segmenter_config=None
             )
 
@@ -203,22 +202,22 @@ class TestPreprocessorConfig:
 
         config = PreprocessorConfig(
             huggingface_target_repo_name="test/dataset",
-            segment=True,
+            segment="yolo",
             segmenter_config=segmenter_config
         )
 
-        assert config.segment is True
+        assert config.segment == "yolo"
         assert config.segmenter_config == segmenter_config
 
     def test_no_segmentation(self):
-        """Test segment=False with no config is valid."""
+        """Test segment=None with no config is valid."""
         config = PreprocessorConfig(
             huggingface_target_repo_name="test/dataset",
-            segment=False,
+            segment=None,
             segmenter_config=None
         )
 
-        assert config.segment is False
+        assert config.segment is None
         assert config.segmenter_config is None
 
     # ==================== XML Parsing Property ====================
@@ -256,7 +255,7 @@ class TestPreprocessorConfig:
         assert config.requires_xml_parsing is True
 
     def test_requires_xml_parsing_raw_xml_mode(self):
-        """Test that raw_xml mode does NOT require XML parsing."""
+        """Test that 'raw_xml' mode does NOT require XML parsing."""
         config = PreprocessorConfig(
             huggingface_target_repo_name="test/dataset",
             export_mode="raw_xml"
@@ -272,46 +271,6 @@ class TestPreprocessorConfig:
             ExportMode.WINDOW
         }
         assert EXPORT_MODES_REQUIRING_XML_PARSING == modes_requiring_parsing
-
-
-class TestDataSourceConfig:
-    """Tests for DataSourceConfig."""
-
-    def test_auto_detect_zip(self):
-        """Test auto-detection of ZIP file."""
-        config = DataSourceConfig(input_path="data/file.zip")
-        assert config.source_type == "zip"
-        assert config.is_zip is True
-        assert config.is_remote is False
-
-    def test_auto_detect_zip_url(self):
-        """Test auto-detection of ZIP URL (http)."""
-        config = DataSourceConfig(input_path="http://example.com/data.zip")
-        assert config.source_type == "zip_url"
-        assert config.is_zip is True
-        assert config.is_remote is True
-
-    def test_auto_detect_zip_url_https(self):
-        """Test auto-detection of ZIP URL (https)."""
-        config = DataSourceConfig(input_path="https://example.com/data.zip")
-        assert config.source_type == "zip_url"
-        assert config.is_zip is True
-        assert config.is_remote is True
-
-    def test_auto_detect_huggingface(self):
-        """Test auto-detection of HuggingFace dataset."""
-        config = DataSourceConfig(input_path="organization/dataset")
-        assert config.source_type == "huggingface"
-        assert config.is_zip is False
-        assert config.is_remote is True
-
-    def test_manual_source_type(self):
-        """Test manually specified source type."""
-        config = DataSourceConfig(
-            input_path="data/file",
-            source_type="custom"
-        )
-        assert config.source_type == "custom"
 
 
 class TestExportModeEnum:

@@ -11,8 +11,8 @@ from pathlib import Path
 import datasets
 from pagexml_hf import XmlConverter
 
-from flow_preprocessor.preprocessing_logic.config import PreprocessorConfig
-from flow_preprocessor.preprocessing_logic.converter_factory import ConverterFactory
+from flow_preprocessing.preprocessing_logic.config import PreprocessorConfig
+from flow_preprocessing.preprocessing_logic.converter_factory import ConverterFactory
 
 
 # ===============================================================================
@@ -53,7 +53,7 @@ def config_with_segmentation():
     return PreprocessorConfig(
         huggingface_target_repo_name="test/dataset",
         export_mode="line",
-        segment=True,
+        segment="yolo",
         segmenter_config=SegmenterConfig(model_names="yolov8n")
     )
 
@@ -147,4 +147,3 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "requires_files: marks tests that require actual test files"
     )
-

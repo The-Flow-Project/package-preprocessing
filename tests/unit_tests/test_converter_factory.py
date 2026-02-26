@@ -6,7 +6,7 @@ Tests factory methods and converter creation logic.
 
 from unittest.mock import Mock, patch
 
-from flow_preprocessor.preprocessing_logic.converter_factory import ConverterFactory
+from flow_preprocessing.preprocessing_logic.converter_factory import ConverterFactory
 
 
 class TestConverterFactory:

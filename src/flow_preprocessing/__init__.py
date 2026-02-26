@@ -12,14 +12,21 @@ from .preprocessing_logic.preprocess import (
     PreprocessorBuilder,
 )
 
-from .preprocessing_logic.config import PreprocessorConfig
+from .preprocessing_logic.config import (
+    PreprocessorBaseConfig,
+    PreprocessorConfig,
+)
+from flow_segmenter import SegmenterConfig, SegmenterBaseConfig
 
-__version__ = "0.6.4"
+__version__ = "0.7.0"
 
 __all__ = [
     "ZipPreprocessor",
     "HuggingFacePreprocessor",
     "PreprocessorBuilder",
+    "PreprocessorBaseConfig",
     "PreprocessorConfig",
+    "SegmenterConfig",
+    "SegmenterBaseConfig",
     "__version__",
 ]

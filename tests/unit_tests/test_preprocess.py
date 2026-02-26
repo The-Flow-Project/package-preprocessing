@@ -6,15 +6,14 @@ Tests both async functionality and configuration-based initialization.
 """
 
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
-import asyncio
+from unittest.mock import Mock, patch
 
-from flow_preprocessor.preprocessing_logic.config import (
+from flow_preprocessing.preprocessing_logic.config import (
     PreprocessorConfig,
     ProcessorState,
 )
-from flow_preprocessor.preprocessing_logic.converter_factory import ConverterFactory
-from flow_preprocessor.preprocessing_logic.preprocess import (
+from flow_preprocessing.preprocessing_logic.converter_factory import ConverterFactory
+from flow_preprocessing.preprocessing_logic.preprocess import (
     ZipPreprocessor,
     HuggingFacePreprocessor,
     PreprocessorBuilder,
@@ -83,9 +82,9 @@ class TestPreprocessorConfig:
 class TestConverterFactory:
     """Tests for ConverterFactory."""
 
-    @patch('flow_preprocessor.preprocessing_logic.converter_factory.XmlConverter')
-    @patch('flow_preprocessor.preprocessing_logic.converter_factory.XmlParser')
-    def test_create_zip_converter(self, mock_parser_class, mock_converter_class):
+    @patch('flow_preprocessing.preprocessing_logic.converter_factory.XmlConverter')
+    @patch('flow_preprocessing.preprocessing_logic.converter_factory.XmlParser')
+    def test_create_zip_converter(self, mock_converter_class):
         """Test creation of ZIP converter."""
         factory = ConverterFactory()
 
@@ -100,9 +99,9 @@ class TestConverterFactory:
         assert call_kwargs['source_type'] == 'zip'
         assert call_kwargs['source_path'] == '/path/to/data.zip'
 
-    @patch('flow_preprocessor.preprocessing_logic.converter_factory.XmlConverter')
-    @patch('flow_preprocessor.preprocessing_logic.converter_factory.XmlParser')
-    def test_create_zip_url_converter(self, mock_parser_class, mock_converter_class):
+    @patch('flow_preprocessing.preprocessing_logic.converter_factory.XmlConverter')
+    @patch('flow_preprocessing.preprocessing_logic.converter_factory.XmlParser')
+    def test_create_zip_url_converter(self, mock_converter_class):
         """Test creation of ZIP URL converter."""
         factory = ConverterFactory()
 
@@ -115,9 +114,9 @@ class TestConverterFactory:
         call_kwargs = mock_converter_class.call_args.kwargs
         assert call_kwargs['source_type'] == 'zip_url'
 
-    @patch('flow_preprocessor.preprocessing_logic.converter_factory.XmlConverter')
-    @patch('flow_preprocessor.preprocessing_logic.converter_factory.XmlParser')
-    def test_create_huggingface_converter(self, mock_parser_class, mock_converter_class):
+    @patch('flow_preprocessing.preprocessing_logic.converter_factory.XmlConverter')
+    @patch('flow_preprocessing.preprocessing_logic.converter_factory.XmlParser')
+    def test_create_huggingface_converter(self, mock_converter_class):
         """Test creation of HuggingFace converter."""
         factory = ConverterFactory()
 
@@ -169,8 +168,7 @@ class TestZipPreprocessor:
         assert preprocessor.state == ProcessorState.INITIALIZED
         assert preprocessor.config == config
 
-    @pytest.mark.asyncio
-    async def test_preprocess_without_segmentation(self, config, mock_factory):
+    def test_preprocess_without_segmentation(self, config, mock_factory):
         """Test preprocessing without segmentation."""
         preprocessor = ZipPreprocessor(
             input_path="test.zip",
@@ -178,7 +176,7 @@ class TestZipPreprocessor:
             converter_factory=mock_factory
         )
 
-        repo_url = await preprocessor.preprocess()
+        repo_url = preprocessor.preprocess()
 
         # Verify state transitions
         assert preprocessor.state == ProcessorState.COMPLETED
@@ -190,20 +188,19 @@ class TestZipPreprocessor:
         # Verify return value
         assert repo_url == "https://test.url"
 
-    @pytest.mark.asyncio
-    async def test_preprocess_with_segmentation(self, mock_factory):
+    def test_preprocess_with_segmentation(self, mock_factory):
         """Test preprocessing with segmentation."""
         from flow_segmenter import SegmenterConfig
 
         config = PreprocessorConfig(
             huggingface_target_repo_name="test/dataset",
             export_mode="line",
-            segment=True,
+            segment="yolo",
             segmenter_config=SegmenterConfig(model_names="yolov8n")
         )
 
         # Mock segmenter
-        with patch('flow_preprocessor.preprocessing_logic.preprocess.SegmenterYOLO') as mock_segmenter_class:
+        with patch('flow_segmenter.SegmenterYolo') as mock_segmenter_class:
             mock_segmenter = Mock()
             mock_segmenter.segment_dataset = Mock(return_value=Mock())
             mock_segmenter_class.return_value = mock_segmenter
@@ -214,7 +211,7 @@ class TestZipPreprocessor:
                 converter_factory=mock_factory
             )
 
-            _ = await preprocessor.preprocess()
+            _ = preprocessor.preprocess()
 
             # Verify segmentation was called
             mock_segmenter.segment_dataset.assert_called_once()
@@ -222,8 +219,7 @@ class TestZipPreprocessor:
             # Verify state
             assert preprocessor.state == ProcessorState.COMPLETED
 
-    @pytest.mark.asyncio
-    async def test_preprocess_failure(self, config, mock_factory):
+    def test_preprocess_failure(self, config, mock_factory):
         """Test preprocessing failure handling."""
         # Make convert_and_upload raise an exception
         mock_converter = mock_factory.create_zip_converter.return_value
@@ -236,7 +232,7 @@ class TestZipPreprocessor:
         )
 
         with pytest.raises(Exception, match="Test error"):
-            await preprocessor.preprocess()
+            preprocessor.preprocess()
 
         # Verify state is FAILED
         assert preprocessor.state == ProcessorState.FAILED
@@ -274,8 +270,7 @@ class TestHuggingFacePreprocessor:
 
         assert preprocessor.state == ProcessorState.INITIALIZED
 
-    @pytest.mark.asyncio
-    async def test_preprocess(self, config, mock_factory):
+    def test_preprocess(self, config, mock_factory):
         """Test preprocessing."""
         preprocessor = HuggingFacePreprocessor(
             input_path="test/input-dataset",
@@ -283,7 +278,7 @@ class TestHuggingFacePreprocessor:
             converter_factory=mock_factory
         )
 
-        _ = await preprocessor.preprocess()
+        _ = preprocessor.preprocess()
 
         # Verify factory was called with correct arguments
         mock_factory.create_huggingface_converter.assert_called()
@@ -320,7 +315,7 @@ class TestPreprocessorBuilder:
             .with_token("hf_xxx")
             .with_export_mode("line")
             .with_crop()
-            .with_split(ratio=0.8, seed=42)
+            .with_split(ratio=0.8)  # default: seed=42
             .with_line_filtering(min_width=50, min_height=20)
             .private()
             .build_for_zip("test.zip")
@@ -352,9 +347,8 @@ class TestPreprocessorBuilder:
 class TestIntegration:
     """Integration tests for the complete workflow."""
 
-    @pytest.mark.asyncio
     @pytest.mark.integration
-    async def test_full_workflow_zip(self):
+    def test_full_workflow_zip(self):
         """Test full workflow with ZIP file (mocked)."""
         # This would be a real integration test with actual files
         # For now, we use mocks
@@ -380,7 +374,7 @@ class TestIntegration:
         )
 
         # Run full workflow
-        repo_url = await preprocessor.preprocess()
+        repo_url = preprocessor.preprocess()
 
         # Verify everything worked
         assert repo_url == "https://test.url"
@@ -389,4 +383,3 @@ class TestIntegration:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
