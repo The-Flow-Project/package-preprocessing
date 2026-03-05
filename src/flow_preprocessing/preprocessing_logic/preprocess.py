@@ -67,6 +67,9 @@ class Preprocessor(ABC):
         self._segmenter_config = self._initialize_segmenter_config(
             config.segmenter_config
         )
+        logger.info(f"Preprocessor initialized with config: {config}")
+        logger.debug(f"Preprocessor initialized with converter: {self._converter}")
+        logger.debug(f"Preprocessor initialized with segmentation models: {self._segmenter_config}")
 
     # ==================== Properties ====================
 
