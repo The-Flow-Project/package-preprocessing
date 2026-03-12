@@ -16,9 +16,16 @@ from .preprocessing_logic.config import (
     PreprocessorBaseConfig,
     PreprocessorConfig,
 )
+
+from .utils.logging.preprocessing_logger import setup_logger
+
 from flow_segmenter import SegmenterConfig, SegmenterBaseConfig
 
+LOGGING_LEVEL = "INFO"
+setup_logger(LOGGING_LEVEL)
+
 __version__ = "0.7.1"
+__license__ = "MIT"
 
 __all__ = [
     "ZipPreprocessor",

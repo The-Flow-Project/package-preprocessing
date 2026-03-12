@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Union, List, Literal
 import datasets
 from pydantic import ValidationError
+from loguru import logger
 
 from pagexml_hf import XmlConverter
 from flow_segmenter import (
@@ -20,7 +21,6 @@ from flow_segmenter import (
     SegmenterBaseConfig
 )
 
-from flow_preprocessing.utils.logging.preprocessing_logger import logger
 from flow_preprocessing.preprocessing_logic.config import (
     PreprocessorConfig,
     ProcessorState,

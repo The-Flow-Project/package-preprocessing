@@ -987,10 +987,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "flow-segmenter", git = "https://github.com/The-Flow-Project/package-segmenter?tag=v0.2.3" },
+    { name = "flow-segmenter", git = "https://github.com/The-Flow-Project/package-segmenter" },
     { name = "lxml" },
     { name = "numpy" },
-    { name = "pagexml-hf", git = "https://github.com/The-Flow-Project/pagexml-hf?tag=v0.7.3%2Bfork.1" },
+    { name = "pagexml-hf", git = "https://github.com/The-Flow-Project/pagexml-hf" },
     { name = "pillow" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -1020,7 +1020,7 @@ dev = [
 [[package]]
 name = "flow-segmenter"
 version = "0.2.3"
-source = { git = "https://github.com/The-Flow-Project/package-segmenter?tag=v0.2.3#c833c6452d87cad34d3d407bbaa0a455fb33aed5" }
+source = { git = "https://github.com/The-Flow-Project/package-segmenter#c833c6452d87cad34d3d407bbaa0a455fb33aed5" }
 dependencies = [
     { name = "datasets" },
     { name = "htrflow" },
@@ -2821,8 +2821,8 @@ wheels = [
 
 [[package]]
 name = "pagexml-hf"
-version = "0.7.3+fork.1"
-source = { git = "https://github.com/The-Flow-Project/pagexml-hf?tag=v0.7.3%2Bfork.1#97cf009b735efcecae8c2ad5cbf5a2ab103cf84e" }
+version = "0.8.0+fork.1"
+source = { git = "https://github.com/The-Flow-Project/pagexml-hf#ec11e3124179f03c979539fb184eaf005c648932" }
 dependencies = [
     { name = "chardet" },
     { name = "datasets" },
@@ -2938,7 +2938,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [

@@ -1,58 +1,59 @@
 """
-Create preprocessing logger
+Logger configuration for the FLOW Preprocessing package with loguru.
 """
+import sys
+from pathlib import Path
+from loguru import logger
 
-import os
-import logging.config
 
-# Ensure log directory exists
-LOG_DIR = "logs"
-if not os.path.exists(LOG_DIR):
-    os.makedirs(LOG_DIR)
+def setup_logger(level: str = "DEBUG") -> None:
+    """
+    Configure the Loguru logger for the application.
 
-logging_config = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'detailed': {
-            'format': '%(asctime)s - %(name)s - %(filename)s - %(levelname)s - %(message)s',
-        },
-        'brief': {
-            'format': '%(levelname)s - %(message)s',
-        },
-    },
-    'handlers': {
-        'file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'level': 'DEBUG',
-            'formatter': 'detailed',
-            'filename': 'logs/preprocessing.log',
-            'mode': 'a',
-            'encoding': 'utf-8',
-            'maxBytes': 5242880,  # 5 MB
-            'backupCount': 5,
-        },
-        'console': {
-            'class': 'logging.StreamHandler',
-            'level': 'INFO',
-            'formatter': 'brief',
-        },
-    },
-    'loggers': {
-        'preprocessing_logger': {
-            'level': 'INFO',
-            'handlers': ['file', 'console'],
-            'propagate': False,
-        },
-    },
-    'root': {
-        'level': 'DEBUG',
-        'handlers': ['file', 'console'],
-    },
-}
+    Args:
+        level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    """
+    # Remove default handler
+    logger.remove()
 
-# Load logging configuration
-logging.config.dictConfig(logging_config)
+    # Console handler with colored output
+    logger.add(
+        sys.stderr,
+        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        level=level,
+        colorize=True,
+        backtrace=False,
+        diagnose=False,
+        enqueue=True,
+    )
 
-# Central logger accessible throughout the application
-logger = logging.getLogger("preprocessing_logger")
+    # File handler for all logs with rotation
+    logs_dir = Path("logs")
+    logs_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.add(
+        logs_dir / "flow_preprocess.log",
+        rotation="5 MB",
+        retention="10 days",
+        level="DEBUG",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
+        backtrace=True,
+        diagnose=True,
+        enqueue=True,  # Thread-safe logging
+    )
+
+    # Separate error log file
+    logger.add(
+        logs_dir / "flow_preprocess_errors.log",
+        rotation="5 MB",
+        retention="30 days",
+        level="ERROR",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
+        backtrace=True,
+        diagnose=True,
+        enqueue=True,
+    )
+
+    logger.info(f"Logger initialized with level: {level}")
+
+

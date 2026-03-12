@@ -5,9 +5,9 @@ Applies Factory Pattern and Template Method Pattern to reduce code duplication.
 """
 
 import datasets
+from loguru import logger
 from pagexml_hf import XmlConverter, XmlParser
 
-from flow_preprocessing.utils.logging.preprocessing_logger import logger
 from flow_preprocessing.utils.url_validator import validate_url
 
 
