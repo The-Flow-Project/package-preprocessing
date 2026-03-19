@@ -201,7 +201,14 @@ class PreprocessorBaseConfig(BaseModel):
             alias="segmenter_config",
             description="Configuration for the segmentation backend.",
             title="Segmenter-Config",
-            examples=["{}"],
+            examples=["{'model_names': 'Riksarkivet/yolov9-lines-within-regions-1',"
+                      "'batch_sizes': 16,"
+                      "'order_lines': false,"
+                      "'baselines': true,"
+                      "'kraken_linemasks': true,"
+                      "'creator': 'yourname',"
+                      "'load_existing_segmentation': true"
+                      "}"],
         ),
     ]
 

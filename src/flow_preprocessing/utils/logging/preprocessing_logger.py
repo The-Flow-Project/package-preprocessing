@@ -27,6 +27,7 @@ def setup_logger(level: str = "DEBUG") -> None:
         enqueue=True,
     )
 
+    """
     # File handler for all logs with rotation
     logs_dir = Path("logs")
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -53,7 +54,8 @@ def setup_logger(level: str = "DEBUG") -> None:
         diagnose=True,
         enqueue=True,
     )
+    """
 
-    logger.info(f"Logger initialized with level: {level}")
+    logger.debug(f"Logger initialized with level: {level}")
 
 
