@@ -24,7 +24,7 @@ from flow_segmenter import SegmenterConfig, SegmenterBaseConfig
 LOGGING_LEVEL = "INFO"
 setup_logger(LOGGING_LEVEL)
 
-__version__ = "0.7.1"
+__version__ = "0.7.2"
 __license__ = "MIT"
 
 __all__ = [
