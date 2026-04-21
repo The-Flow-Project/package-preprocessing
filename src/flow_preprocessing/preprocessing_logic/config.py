@@ -128,6 +128,18 @@ class PreprocessorBaseConfig(BaseModel):
             examples=["32"],
         ),
     ]
+    augmentation_loops: Annotated[
+        int | None,
+        Field(
+            default=None,
+            alias="augmentation_loops",
+            description="Augmentation loops for random preprocessing, works only with export_mode==line \
+             (e.g., if it is equal to 2, you'll get three lines)",
+            title="Augmentation-Loops",
+            examples=["2"],
+            ge=0,
+        )
+    ]
 
     # Line filtering
     min_width_line: Annotated[
@@ -138,6 +150,7 @@ class PreprocessorBaseConfig(BaseModel):
             description="Minimum width of a line; None disables filtering.",
             title="Min-Width-Line",
             examples=["40"],
+            gt=0,
         ),
     ]
     min_height_line: Annotated[
@@ -148,6 +161,7 @@ class PreprocessorBaseConfig(BaseModel):
             description="Minimum height of a line; None disables filtering.",
             title="Min-Height-Line",
             examples=["10"],
+            gt=0,
         ),
     ]
 
@@ -160,6 +174,8 @@ class PreprocessorBaseConfig(BaseModel):
             description="Train split ratio; None disables splitting.",
             title="Split-Train-Ratio",
             examples=["0.8"],
+            ge=0.0,
+            le=1.0,
         ),
     ]
     split_seed: Annotated[
@@ -170,6 +186,7 @@ class PreprocessorBaseConfig(BaseModel):
             description="Random seed for dataset splitting.",
             title="Split-Seed",
             examples=["42"],
+            gt=0,
         ),
     ]
     split_shuffle: Annotated[
@@ -222,23 +239,6 @@ class PreprocessorBaseConfig(BaseModel):
                 f"Invalid export_mode: '{value}'. "
                 f"Valid options are: {', '.join(valid_modes)}"
             )
-        return value
-
-    @field_validator("min_width_line", "min_height_line")
-    @classmethod
-    def _validate_line_dimensions(cls, value: int | None, info) -> int | None:
-        """Validate line dimension parameters."""
-        if value is not None and value <= 0:
-            raise ValueError(f"{info.field_name} must be a positive integer or None.")
-        return value
-
-    @field_validator("split_train_ratio")
-    @classmethod
-    def _validate_split_ratio(cls, value: float | None) -> float | None:
-        """Validate split ratio parameter."""
-        if value is not None:
-            if not (0.0 < value <= 1.0):
-                raise ValueError("split_train_ratio must be between 0.0 and 1.0.")
         return value
 
     @model_validator(mode="after")

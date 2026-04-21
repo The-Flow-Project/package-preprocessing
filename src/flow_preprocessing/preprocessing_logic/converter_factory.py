@@ -7,6 +7,7 @@ Applies Factory Pattern and Template Method Pattern to reduce code duplication.
 import datasets
 from loguru import logger
 from pagexml_hf import XmlConverter, XmlParser
+from pydantic import SecretStr
 
 from flow_preprocessing.utils.url_validator import validate_url
 
@@ -67,7 +68,7 @@ class ConverterFactory:
     def create_huggingface_converter(
             self,
             repo_id: str,
-            token: str | None,
+            token: str | SecretStr | None,
             parse_xml: bool,
             dataset: datasets.Dataset | None = None
     ) -> XmlConverter:
@@ -80,6 +81,8 @@ class ConverterFactory:
         :param dataset: Optional dataset object to use instead of loading from hub.
         :return: Configured XmlConverter instance.
         """
+        if type(token) is SecretStr:
+            token = token.get_secret_value()
         if dataset is not None:
             gen_kwargs = {
                 'dataset': dataset,

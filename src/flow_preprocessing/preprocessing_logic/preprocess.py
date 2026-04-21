@@ -12,7 +12,7 @@ This module provides preprocessing functionality for PageXML datasets with:
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Union, List, Literal
 import datasets
-from pydantic import ValidationError
+from pydantic import ValidationError, SecretStr
 from loguru import logger
 
 from pagexml_hf import XmlConverter
@@ -244,10 +244,17 @@ class Preprocessor(ABC):
         :return: URL of the uploaded dataset repository.
         """
         logger.info(f"Converting and uploading with export_mode={self._config.export_mode}")
+        if self._config.huggingface_token:
+            huggingface_token = self._config.huggingface_token.get_secret_value() if \
+            type(self._config.huggingface_token) is SecretStr else self._config.huggingface_token
+        else:
+            huggingface_token = ""
+        logger.debug(f"HuggingFace token provided: {bool(huggingface_token)}")
+
         return self.converter.convert_and_upload(
             repo_id=self._config.huggingface_target_repo_name,
             export_mode=self._config.export_mode,
-            token=self._config.huggingface_token,
+            token=self._config.huggingface_token.get_secret_value(),
             private=self._config.huggingface_target_repo_private,
             split_train=self._config.split_train_ratio,
             split_seed=self._config.split_seed,
@@ -257,7 +264,8 @@ class Preprocessor(ABC):
             min_height=self._config.min_height_line,
             allow_empty=self._config.allow_empty_lines,
             batch_size=self._config.batch_size,
-            append=self._config.append
+            append=self._config.append,
+            line_augment=self._config.augmentation_loops,
         )
 
     def _set_state(self, state: ProcessorState) -> None:
