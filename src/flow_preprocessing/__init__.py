@@ -21,9 +21,6 @@ from .utils.logging.preprocessing_logger import setup_logger
 
 from flow_segmenter import SegmenterConfig, SegmenterBaseConfig
 
-LOGGING_LEVEL = "DEBUG"
-setup_logger(LOGGING_LEVEL)
-
 __version__ = "0.7.2"
 __license__ = "MIT"
 
@@ -35,5 +32,6 @@ __all__ = [
     "PreprocessorConfig",
     "SegmenterConfig",
     "SegmenterBaseConfig",
+    "setup_logger",
     "__version__",
 ]

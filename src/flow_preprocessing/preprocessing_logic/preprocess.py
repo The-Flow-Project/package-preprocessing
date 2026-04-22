@@ -216,7 +216,7 @@ class Preprocessor(ABC):
             export_mode=ExportMode.RAW_XML.value,
             # default: split_train=None,
             allow_empty=self._config.allow_empty_lines,
-            batch_size=self._config.batch_size,
+            batch_size=self._config.batch_size if self._config.batch_size else 32,
         )
 
         # Segment the dataset
@@ -225,7 +225,8 @@ class Preprocessor(ABC):
                 segmented_dataset,
                 new_column_name='xml_content',
             )
-            logger.debug(f"Segmentation completed. Dataset size: {self._dataset.column_names}")
+            logger.debug(
+                f"Segmentation completed. Dataset size: {self._dataset.column_names if self._dataset else 'N/A'}")
             logger.debug(f"Segmented dataset: {segmented_dataset.column_names}")
         else:
             logger.error("No valid segmenter found for segmentation.")
@@ -246,16 +247,17 @@ class Preprocessor(ABC):
         logger.info(f"Converting and uploading with export_mode={self._config.export_mode}")
         if self._config.huggingface_token:
             huggingface_token = self._config.huggingface_token.get_secret_value() if \
-            type(self._config.huggingface_token) is SecretStr else self._config.huggingface_token
+                type(self._config.huggingface_token) is SecretStr else self._config.huggingface_token
         else:
             huggingface_token = ""
         logger.debug(f"HuggingFace token provided: {bool(huggingface_token)}")
 
         return self.converter.convert_and_upload(
             repo_id=self._config.huggingface_target_repo_name,
-            export_mode=self._config.export_mode,
-            token=self._config.huggingface_token.get_secret_value(),
-            private=self._config.huggingface_target_repo_private,
+            export_mode=self._config.export_mode if self._config.export_mode else ExportMode.RAW_XML.value,
+            token=str(huggingface_token),
+            private=self._config.huggingface_target_repo_private \
+                if self._config.huggingface_target_repo_private else False,
             split_train=self._config.split_train_ratio,
             split_seed=self._config.split_seed,
             split_shuffle=self._config.split_shuffle,
@@ -263,8 +265,8 @@ class Preprocessor(ABC):
             min_width=self._config.min_width_line,
             min_height=self._config.min_height_line,
             allow_empty=self._config.allow_empty_lines,
-            batch_size=self._config.batch_size,
-            append=self._config.append,
+            batch_size=self._config.batch_size if self._config.batch_size else 32,
+            append=self._config.append if self._config.append else False,
             line_augment=self._config.augmentation_loops,
         )
 
