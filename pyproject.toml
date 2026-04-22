@@ -20,7 +20,7 @@ license = "MIT"
 dependencies = [
     "flow-segmenter",
     "pagexml-hf",
-    "lxml>=4.6.0",
+    "lxml>=6.1.0",
     "numpy",
     "pillow>=12.1.1",
     "pydantic",
