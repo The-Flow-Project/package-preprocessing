@@ -14,6 +14,7 @@ from typing import Dict, Any, Union, List, Literal
 import datasets
 from pydantic import ValidationError, SecretStr
 from loguru import logger
+import gc
 
 from pagexml_hf import XmlConverter
 from flow_segmenter import (
@@ -228,6 +229,8 @@ class Preprocessor(ABC):
             logger.debug(
                 f"Segmentation completed. Dataset size: {self._dataset.column_names if self._dataset else 'N/A'}")
             logger.debug(f"Segmented dataset: {segmented_dataset.column_names}")
+            del segmenter
+            gc.collect()
         else:
             logger.error("No valid segmenter found for segmentation.")
             self._set_state(ProcessorState.FAILED)
