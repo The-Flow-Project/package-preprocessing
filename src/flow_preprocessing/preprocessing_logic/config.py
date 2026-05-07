@@ -4,18 +4,18 @@ Configuration classes for the preprocessor.
 Separates configuration from business logic following Single Responsibility Principle.
 """
 
-from typing import Union, Literal, Annotated
 from enum import Enum
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, ConfigDict, SecretStr, field_validator, model_validator
-
-from flow_segmenter import SegmenterConfig, SegmenterBaseConfig
+from flow_segmenter import SegmenterBaseConfig, SegmenterConfig
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
 
 class ExportMode(Enum):
     """
     Available export modes for the preprocessor.
     """
+
     RAW_XML = "raw_xml"
     TEXT = "text"
     REGION = "region"
@@ -27,6 +27,7 @@ class ProcessorState(Enum):
     """
     Enum for processor states.
     """
+
     INITIALIZED = "initialized"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -38,7 +39,7 @@ EXPORT_MODES_REQUIRING_XML_PARSING = {
     ExportMode.LINE,
     ExportMode.REGION,
     ExportMode.TEXT,
-    ExportMode.WINDOW
+    ExportMode.WINDOW,
 }
 
 
@@ -49,13 +50,13 @@ class PreprocessorBaseConfig(BaseModel):
     Encapsulates all configuration parameters with validation and clear defaults.
     Uses Pydantic for validation and schema metadata.
     """
+
     model_config = ConfigDict(populate_by_name=True)
 
     # Required parameters
     huggingface_target_repo_name: Annotated[
         str,
         Field(
-            default=None,
             alias="huggingface_target_repo_name",
             description="HuggingFace target repository name.",
             title="HuggingFace-Target-Repo-Name",
@@ -138,7 +139,7 @@ class PreprocessorBaseConfig(BaseModel):
             title="Augmentation-Loops",
             examples=["2"],
             ge=0,
-        )
+        ),
     ]
 
     # Line filtering
@@ -174,7 +175,7 @@ class PreprocessorBaseConfig(BaseModel):
             description="Train split ratio; None disables splitting.",
             title="Split-Train-Ratio",
             examples=["0.8"],
-            ge=0.0,
+            gt=0.0,
             le=1.0,
         ),
     ]
@@ -186,7 +187,7 @@ class PreprocessorBaseConfig(BaseModel):
             description="Random seed for dataset splitting.",
             title="Split-Seed",
             examples=["42"],
-            gt=0,
+            ge=0,
         ),
     ]
     split_shuffle: Annotated[
@@ -212,20 +213,22 @@ class PreprocessorBaseConfig(BaseModel):
         ),
     ]
     segmenter_config: Annotated[
-        Union[SegmenterConfig, SegmenterBaseConfig, dict] | None,
+        SegmenterConfig | SegmenterBaseConfig | dict | None,
         Field(
             default=None,
             alias="segmenter_config",
             description="Configuration for the segmentation backend.",
             title="Segmenter-Config",
-            examples=["{'model_names': 'Riksarkivet/yolov9-lines-within-regions-1',"
-                      "'batch_sizes': 16,"
-                      "'order_lines': false,"
-                      "'baselines': true,"
-                      "'kraken_linemasks': true,"
-                      "'creator': 'yourname',"
-                      "'load_existing_segmentation': true"
-                      "}"],
+            examples=[
+                "{'model_names': 'Riksarkivet/yolov9-lines-within-regions-1',"
+                "'batch_sizes': 16,"
+                "'order_lines': false,"
+                "'baselines': true,"
+                "'kraken_linemasks': true,"
+                "'creator': 'yourname',"
+                "'load_existing_segmentation': true"
+                "}"
+            ],
         ),
     ]
 
@@ -245,9 +248,7 @@ class PreprocessorBaseConfig(BaseModel):
     def _validate_segmentation(self) -> "PreprocessorBaseConfig":
         """Validate segmentation configuration."""
         if self.segment and self.segmenter_config is None:
-            raise ValueError(
-                "segmenter_config must be provided when segment is True."
-            )
+            raise ValueError("segmenter_config must be provided when segment is set.")
         return self
 
     @property
@@ -265,6 +266,7 @@ class PreprocessorConfig(PreprocessorBaseConfig):
     """
     Extended configuration for the preprocessor.
     """
+
     huggingface_token: Annotated[
         SecretStr | None,
         Field(

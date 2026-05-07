@@ -1,61 +1,106 @@
 # Makefile for testing and development tasks
 
-.PHONY: help test test-unit test-integration test-all test-verbose test-coverage clean lint format install
+.PHONY: help install install-dev install-docs install-all test test-fast coverage lint format fix check clean build docs docs-serve
+
+# Tools (run inside the uv-managed venv)
+PYTEST := uv run pytest
+BLACK  := uv run black
+RUFF   := uv run ruff
+ISORT  := uv run isort
+MYPY   := uv run mypy
+SPHINX := uv run sphinx-build
+
+# Directories
+SRC_DIR        := src/flow_preprocessing
+TEST_DIR       := tests
+DOCS_DIR       := docs
+DOCS_BUILD_DIR := $(DOCS_DIR)/_build
 
 help:  ## Show this help message
 	@echo "Available commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-install:  ## Install package in development mode
-	pip install -e .
-	pip install pytest pytest-asyncio pytest-cov
+install:
+	uv sync
 
-test:  ## Run all unit tests (fast)
-	pytest -m "not integration" -v
+install-dev:
+	uv sync --extra dev
 
-test-unit:  ## Run unit tests only
-	pytest tests/unit_tests/ -v
+install-docs:
+	uv sync --extra docs
 
-test-integration:  ## Run integration tests only
-	pytest -m integration -v
+install-all:
+	uv sync --all-extras
 
-test-all:  ## Run all tests including integration
-	pytest -v
+test:
+	$(PYTEST) $(TEST_DIR)
 
-test-verbose:  ## Run tests with maximum verbosity
-	pytest -vv -s
+test-fast:
+	$(PYTEST) $(TEST_DIR) -n auto
 
-test-coverage:  ## Run tests with coverage report
-	pytest --cov=src/flow_preprocessor --cov-report=html --cov-report=term-missing
-	@echo "Coverage report generated in htmlcov/index.html"
+coverage:
+	$(PYTEST) $(TEST_DIR) --cov=$(SRC_DIR) --cov-report=html --cov-report=term --cov-report=xml
 
-test-watch:  ## Run tests in watch mode (requires pytest-watch)
-	pytest-watch
+lint:
+	@echo "Running ruff..."
+	$(RUFF) check $(SRC_DIR) $(TEST_DIR)
+	@echo ""
+	@echo "Running mypy..."
+	$(MYPY) $(SRC_DIR)
 
-test-file:  ## Run specific test file (usage: make test-file FILE=test_config.py)
-	pytest tests/unit_tests/$(FILE) -v
+format:
+	@echo "Running isort..."
+	$(ISORT) $(SRC_DIR) $(TEST_DIR)
+	@echo ""
+	@echo "Running black..."
+	$(BLACK) $(SRC_DIR) $(TEST_DIR)
 
-clean:  ## Clean up generated files
+fix:
+	@echo "Auto-fixing with ruff..."
+	$(RUFF) check --fix $(SRC_DIR) $(TEST_DIR)
+	@echo ""
+	@echo "Running isort..."
+	$(ISORT) $(SRC_DIR) $(TEST_DIR)
+	@echo ""
+	@echo "Running black..."
+	$(BLACK) $(SRC_DIR) $(TEST_DIR)
+
+check:
+	@echo "Checking format with black..."
+	$(BLACK) --check $(SRC_DIR) $(TEST_DIR)
+	@echo ""
+	@echo "Checking imports with isort..."
+	$(ISORT) --check-only $(SRC_DIR) $(TEST_DIR)
+	@echo ""
+	@echo "Checking with ruff..."
+	$(RUFF) check $(SRC_DIR) $(TEST_DIR)
+
+clean:
+	@echo "Cleaning build artifacts..."
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pyo" -delete
-	find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
-	rm -rf .pytest_cache
-	rm -rf htmlcov
-	rm -rf .coverage
-	rm -rf dist
-	rm -rf build
+	find . -type f -name ".coverage" -delete
+	rm -rf .pytest_cache/
+	rm -rf htmlcov/
+	rm -rf dist/
+	rm -rf build/
+	rm -rf *.egg-info/
+	rm -rf .ruff_cache/
+	rm -rf .mypy_cache/
+	rm -rf $(DOCS_BUILD_DIR)
+	rm -rf logs/*.log 2>/dev/null || true
+	@echo "Clean complete!"
 
-lint:  ## Run linting checks
-	@command -v ruff >/dev/null 2>&1 && ruff check src/ tests/ || echo "ruff not installed"
-	@command -v mypy >/dev/null 2>&1 && mypy src/ || echo "mypy not installed"
+build: clean
+	uv build
 
-format:  ## Format code with black
-	@command -v black >/dev/null 2>&1 && black src/ tests/ || echo "black not installed"
+docs:
+	@echo "Generating documentation..."
+	$(SPHINX) -b html $(DOCS_DIR) $(DOCS_BUILD_DIR)/html
+	@echo "Documentation generated in $(DOCS_BUILD_DIR)/html"
 
-check:  ## Run all checks (lint + tests)
-	make lint
-	make test
-
-.DEFAULT_GOAL := help
+docs-serve: docs
+	@echo "Serving documentation on http://localhost:8000"
+	cd $(DOCS_BUILD_DIR)/html && uv run python -m http.server 8000
 

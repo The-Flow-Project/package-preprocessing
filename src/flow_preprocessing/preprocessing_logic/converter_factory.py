@@ -28,10 +28,7 @@ class ConverterFactory:
         self._parser = parser or XmlParser()
 
     def create_zip_converter(
-            self,
-            zip_path: str,
-            parse_xml: bool,
-            dataset: datasets.Dataset | None = None
+        self, zip_path: str, parse_xml: bool, dataset: datasets.Dataset | None = None
     ) -> XmlConverter:
         """
         Create a converter for ZIP files.
@@ -44,33 +41,31 @@ class ConverterFactory:
         """
         if dataset is not None:
             return self._create_dataset_converter(
-                dataset=dataset,
-                parse_xml=parse_xml,
-                source_path=zip_path
+                dataset=dataset, parse_xml=parse_xml, source_path=zip_path
             )
 
         # Validate URL if it's a remote URL (SSRF prevention)
-        if zip_path.startswith('http://') or zip_path.startswith('https://'):
+        if zip_path.startswith("http://") or zip_path.startswith("https://"):
             validate_url(zip_path)
-            source_type = 'zip_url'
+            source_type = "zip_url"
         else:
-            source_type = 'zip'
+            source_type = "zip"
 
         logger.info(f"Creating XmlConverter for ZIP: {zip_path} (type: {source_type})")
 
         return XmlConverter(
             gen_func=self._parser.parse_zip,
-            gen_kwargs={'zip_path': zip_path, 'parse_xml': parse_xml},
+            gen_kwargs={"zip_path": zip_path, "parse_xml": parse_xml},
             source_type=source_type,
-            source_path=zip_path
+            source_path=zip_path,
         )
 
     def create_huggingface_converter(
-            self,
-            repo_id: str,
-            token: str | SecretStr | None,
-            parse_xml: bool,
-            dataset: datasets.Dataset | None = None
+        self,
+        repo_id: str,
+        token: str | SecretStr | None,
+        parse_xml: bool,
+        dataset: datasets.Dataset | None = None,
     ) -> XmlConverter:
         """
         Create a converter for HuggingFace datasets.
@@ -81,35 +76,24 @@ class ConverterFactory:
         :param dataset: Optional dataset object to use instead of loading from hub.
         :return: Configured XmlConverter instance.
         """
-        if type(token) is SecretStr:
+        if isinstance(token, SecretStr):
             token = token.get_secret_value()
         if dataset is not None:
-            gen_kwargs = {
-                'dataset': dataset,
-                'token': token,
-                'parse_xml': parse_xml
-            }
+            gen_kwargs = {"dataset": dataset, "token": token, "parse_xml": parse_xml}
             logger.info("Using existing dataset for XML conversion.")
         else:
-            gen_kwargs = {
-                'dataset': repo_id,
-                'token': token,
-                'parse_xml': parse_xml
-            }
+            gen_kwargs = {"dataset": repo_id, "token": token, "parse_xml": parse_xml}
             logger.info(f"Loading dataset from HuggingFace Hub: {repo_id}")
 
         return XmlConverter(
             gen_func=self._parser.parse_dataset,
             gen_kwargs=gen_kwargs,
-            source_type='huggingface',
-            source_path=repo_id
+            source_type="huggingface",
+            source_path=repo_id,
         )
 
     def _create_dataset_converter(
-            self,
-            dataset: datasets.Dataset,
-            parse_xml: bool,
-            source_path: str
+        self, dataset: datasets.Dataset, parse_xml: bool, source_path: str
     ) -> XmlConverter:
         """
         Create a converter from a dataset object.
@@ -123,7 +107,7 @@ class ConverterFactory:
 
         return XmlConverter(
             gen_func=self._parser.parse_dataset,
-            gen_kwargs={'dataset': dataset, 'parse_xml': parse_xml},
-            source_type='huggingface',
-            source_path=source_path
+            gen_kwargs={"dataset": dataset, "parse_xml": parse_xml},
+            source_type="huggingface",
+            source_path=source_path,
         )

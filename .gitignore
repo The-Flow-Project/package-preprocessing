@@ -68,15 +68,13 @@ instance/
 # Scrapy stuff:
 .scrapy
 
-# Sphinx documentation
-docs/_build/
-
 # PyBuilder
 .pybuilder/
 target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
 
 # IPython
 profile_default/
@@ -201,3 +199,11 @@ data
 
 # Is handeled by pyproject.toml
 requirements.txt
+
+# Agents
+.claude/
+
+# Documentation build
+docs/_build/
+docs/_autosummary/
+docs/_static/

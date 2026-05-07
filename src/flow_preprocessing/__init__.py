@@ -6,22 +6,19 @@ Main exports:
 - HuggingFacePreprocessor: For processing HuggingFace datasets
 - PreprocessorBuilder: Fluent API for easy preprocessor creation
 """
-from .preprocessing_logic.preprocess import (
-    ZipPreprocessor,
-    HuggingFacePreprocessor,
-    PreprocessorBuilder,
-)
+
+from flow_segmenter import SegmenterBaseConfig, SegmenterConfig
 
 from .preprocessing_logic.config import (
     PreprocessorBaseConfig,
     PreprocessorConfig,
 )
-
-from .utils.logging.preprocessing_logger import setup_logger
-
-from flow_segmenter import SegmenterConfig, SegmenterBaseConfig
-
-__version__ = "0.7.2"
+from .preprocessing_logic.preprocess import (
+    HuggingFacePreprocessor,
+    PreprocessorBuilder,
+    ZipPreprocessor,
+)
+__version__ = "0.8.0"
 __license__ = "MIT"
 
 __all__ = [
@@ -32,6 +29,5 @@ __all__ = [
     "PreprocessorConfig",
     "SegmenterConfig",
     "SegmenterBaseConfig",
-    "setup_logger",
     "__version__",
 ]

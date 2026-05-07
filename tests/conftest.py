@@ -4,20 +4,20 @@ Pytest configuration and shared fixtures.
 This file contains fixtures that are available to all tests.
 """
 
-import pytest
-from unittest.mock import Mock
 from pathlib import Path
+from unittest.mock import Mock
 
 import datasets
+import pytest
 from pagexml_hf import XmlConverter
 
 from flow_preprocessing.preprocessing_logic.config import PreprocessorConfig
 from flow_preprocessing.preprocessing_logic.converter_factory import ConverterFactory
 
-
 # ===============================================================================
 # Directory Fixtures
 # ===============================================================================
+
 
 @pytest.fixture(scope="session")
 def test_data_dir():
@@ -35,13 +35,12 @@ def test_images_dir(test_data_dir):
 # Configuration Fixtures
 # ===============================================================================
 
+
 @pytest.fixture
 def basic_config():
     """Create a basic preprocessor configuration."""
     return PreprocessorConfig(
-        huggingface_target_repo_name="test/dataset",
-        export_mode="line",
-        batch_size=32
+        huggingface_target_repo_name="test/dataset", export_mode="line", batch_size=32
     )
 
 
@@ -54,7 +53,7 @@ def config_with_segmentation():
         huggingface_target_repo_name="test/dataset",
         export_mode="line",
         segment="yolo",
-        segmenter_config=SegmenterConfig(model_names="yolov8n")
+        segmenter_config=SegmenterConfig(model_names="yolov8n"),
     )
 
 
@@ -66,7 +65,7 @@ def config_with_splitting():
         export_mode="line",
         split_train_ratio=0.8,
         split_seed=42,
-        split_shuffle=True
+        split_shuffle=True,
     )
 
 
@@ -78,13 +77,14 @@ def config_with_filtering():
         export_mode="line",
         min_width_line=50,
         min_height_line=20,
-        allow_empty_lines=False
+        allow_empty_lines=False,
     )
 
 
 # ===============================================================================
 # Mock Fixtures
 # ===============================================================================
+
 
 @pytest.fixture
 def mock_xml_parser():
@@ -133,10 +133,12 @@ def mock_dataset():
 # Pytest Configuration
 # ===============================================================================
 
+
 def pytest_configure(config):
     """Configure pytest with custom markers."""
     config.addinivalue_line(
-        "markers", "integration: marks tests as integration tests (deselect with '-m \"not integration\"')"
+        "markers",
+        "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
     )
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"

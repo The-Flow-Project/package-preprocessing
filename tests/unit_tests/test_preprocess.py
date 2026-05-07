@@ -5,8 +5,9 @@ Demonstrates improved testability with Dependency Injection.
 Tests both async functionality and configuration-based initialization.
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 from flow_preprocessing.preprocessing_logic.config import (
     PreprocessorConfig,
@@ -14,15 +15,15 @@ from flow_preprocessing.preprocessing_logic.config import (
 )
 from flow_preprocessing.preprocessing_logic.converter_factory import ConverterFactory
 from flow_preprocessing.preprocessing_logic.preprocess import (
-    ZipPreprocessor,
     HuggingFacePreprocessor,
     PreprocessorBuilder,
+    ZipPreprocessor,
 )
-
 
 # ===============================================================================
 # Configuration Tests
 # ===============================================================================
+
 
 class TestPreprocessorConfig:
     """Tests for PreprocessorConfig."""
@@ -30,8 +31,7 @@ class TestPreprocessorConfig:
     def test_valid_config(self):
         """Test creation of valid configuration."""
         config = PreprocessorConfig(
-            huggingface_target_repo_name="test/dataset",
-            export_mode="line"
+            huggingface_target_repo_name="test/dataset", export_mode="line"
         )
         assert config.huggingface_target_repo_name == "test/dataset"
         assert config.export_mode == "line"
@@ -40,37 +40,30 @@ class TestPreprocessorConfig:
         """Test that invalid export mode raises error."""
         with pytest.raises(ValueError, match="Invalid export_mode"):
             PreprocessorConfig(
-                huggingface_target_repo_name="test/dataset",
-                export_mode="invalid_mode"
+                huggingface_target_repo_name="test/dataset", export_mode="invalid_mode"
             )
 
     def test_invalid_line_dimensions(self):
         """Test that negative line dimensions raise error."""
-        with pytest.raises(ValueError, match="positive integer"):
-            PreprocessorConfig(
-                huggingface_target_repo_name="test/dataset",
-                min_width_line=-10
-            )
+        with pytest.raises(ValueError, match="greater than 0"):
+            PreprocessorConfig(huggingface_target_repo_name="test/dataset", min_width_line=-10)
 
     def test_invalid_split_ratio(self):
         """Test that invalid split ratio raises error."""
-        with pytest.raises(ValueError, match="between 0.0 and 1.0"):
+        with pytest.raises(ValueError, match="less than or equal to 1"):
             PreprocessorConfig(
-                huggingface_target_repo_name="test/dataset",
-                split_train_ratio=1.5
+                huggingface_target_repo_name="test/dataset", split_train_ratio=1.5
             )
 
     def test_requires_xml_parsing(self):
         """Test XML parsing requirement detection."""
         config_line = PreprocessorConfig(
-            huggingface_target_repo_name="test/dataset",
-            export_mode="line"
+            huggingface_target_repo_name="test/dataset", export_mode="line"
         )
         assert config_line.requires_xml_parsing is True
 
         config_raw = PreprocessorConfig(
-            huggingface_target_repo_name="test/dataset",
-            export_mode="raw_xml"
+            huggingface_target_repo_name="test/dataset", export_mode="raw_xml"
         )
         assert config_raw.requires_xml_parsing is False
 
@@ -79,61 +72,57 @@ class TestPreprocessorConfig:
 # Factory Tests
 # ===============================================================================
 
+
 class TestConverterFactory:
     """Tests for ConverterFactory."""
 
-    @patch('flow_preprocessing.preprocessing_logic.converter_factory.XmlConverter')
-    @patch('flow_preprocessing.preprocessing_logic.converter_factory.XmlParser')
-    def test_create_zip_converter(self, mock_converter_class):
+    @patch("flow_preprocessing.preprocessing_logic.converter_factory.XmlConverter")
+    @patch("flow_preprocessing.preprocessing_logic.converter_factory.XmlParser")
+    def test_create_zip_converter(self, mock_parser_class, mock_converter_class):
         """Test creation of ZIP converter."""
         factory = ConverterFactory()
 
-        _ = factory.create_zip_converter(
-            zip_path="/path/to/data.zip",
-            parse_xml=True
-        )
+        _ = factory.create_zip_converter(zip_path="/path/to/data.zip", parse_xml=True)
 
         # Verify XmlConverter was called with correct arguments
         mock_converter_class.assert_called_once()
         call_kwargs = mock_converter_class.call_args.kwargs
-        assert call_kwargs['source_type'] == 'zip'
-        assert call_kwargs['source_path'] == '/path/to/data.zip'
+        assert call_kwargs["source_type"] == "zip"
+        assert call_kwargs["source_path"] == "/path/to/data.zip"
 
-    @patch('flow_preprocessing.preprocessing_logic.converter_factory.XmlConverter')
-    @patch('flow_preprocessing.preprocessing_logic.converter_factory.XmlParser')
-    def test_create_zip_url_converter(self, mock_converter_class):
+    @patch("flow_preprocessing.preprocessing_logic.converter_factory.XmlConverter")
+    @patch("flow_preprocessing.preprocessing_logic.converter_factory.XmlParser")
+    def test_create_zip_url_converter(self, mock_parser_class, mock_converter_class):
         """Test creation of ZIP URL converter."""
         factory = ConverterFactory()
 
         _ = factory.create_zip_converter(
-            zip_path="https://example.com/data.zip",
-            parse_xml=True
+            zip_path="https://example.com/data.zip", parse_xml=True
         )
 
         # Verify source_type is 'zip_url' for URLs
         call_kwargs = mock_converter_class.call_args.kwargs
-        assert call_kwargs['source_type'] == 'zip_url'
+        assert call_kwargs["source_type"] == "zip_url"
 
-    @patch('flow_preprocessing.preprocessing_logic.converter_factory.XmlConverter')
-    @patch('flow_preprocessing.preprocessing_logic.converter_factory.XmlParser')
-    def test_create_huggingface_converter(self, mock_converter_class):
+    @patch("flow_preprocessing.preprocessing_logic.converter_factory.XmlConverter")
+    @patch("flow_preprocessing.preprocessing_logic.converter_factory.XmlParser")
+    def test_create_huggingface_converter(self, mock_parser_class, mock_converter_class):
         """Test creation of HuggingFace converter."""
         factory = ConverterFactory()
 
         _ = factory.create_huggingface_converter(
-            repo_id="test/dataset",
-            token="hf_xxx",
-            parse_xml=True
+            repo_id="test/dataset", token="hf_xxx", parse_xml=True
         )
 
         # Verify source_type and gen_func
         call_kwargs = mock_converter_class.call_args.kwargs
-        assert call_kwargs['source_type'] == 'huggingface'
+        assert call_kwargs["source_type"] == "huggingface"
 
 
 # ===============================================================================
 # Preprocessor Tests
 # ===============================================================================
+
 
 class TestZipPreprocessor:
     """Tests for ZipPreprocessor."""
@@ -142,8 +131,7 @@ class TestZipPreprocessor:
     def config(self):
         """Create test configuration."""
         return PreprocessorConfig(
-            huggingface_target_repo_name="test/dataset",
-            export_mode="line"
+            huggingface_target_repo_name="test/dataset", export_mode="line"
         )
 
     @pytest.fixture
@@ -160,9 +148,7 @@ class TestZipPreprocessor:
     def test_initialization(self, config, mock_factory):
         """Test preprocessor initialization."""
         preprocessor = ZipPreprocessor(
-            input_path="test.zip",
-            config=config,
-            converter_factory=mock_factory
+            input_path="test.zip", config=config, converter_factory=mock_factory
         )
 
         assert preprocessor.state == ProcessorState.INITIALIZED
@@ -171,9 +157,7 @@ class TestZipPreprocessor:
     def test_preprocess_without_segmentation(self, config, mock_factory):
         """Test preprocessing without segmentation."""
         preprocessor = ZipPreprocessor(
-            input_path="test.zip",
-            config=config,
-            converter_factory=mock_factory
+            input_path="test.zip", config=config, converter_factory=mock_factory
         )
 
         repo_url = preprocessor.preprocess()
@@ -196,19 +180,17 @@ class TestZipPreprocessor:
             huggingface_target_repo_name="test/dataset",
             export_mode="line",
             segment="yolo",
-            segmenter_config=SegmenterConfig(model_names="yolov8n")
+            segmenter_config=SegmenterConfig(model_names="yolov8n"),
         )
 
         # Mock segmenter
-        with patch('flow_segmenter.SegmenterYolo') as mock_segmenter_class:
+        with patch("flow_segmenter.SegmenterYolo") as mock_segmenter_class:
             mock_segmenter = Mock()
             mock_segmenter.segment_dataset = Mock(return_value=Mock())
             mock_segmenter_class.return_value = mock_segmenter
 
             preprocessor = ZipPreprocessor(
-                input_path="test.zip",
-                config=config,
-                converter_factory=mock_factory
+                input_path="test.zip", config=config, converter_factory=mock_factory
             )
 
             _ = preprocessor.preprocess()
@@ -226,9 +208,7 @@ class TestZipPreprocessor:
         mock_converter.convert_and_upload.side_effect = Exception("Test error")
 
         preprocessor = ZipPreprocessor(
-            input_path="test.zip",
-            config=config,
-            converter_factory=mock_factory
+            input_path="test.zip", config=config, converter_factory=mock_factory
         )
 
         with pytest.raises(Exception, match="Test error"):
@@ -247,7 +227,7 @@ class TestHuggingFacePreprocessor:
         return PreprocessorConfig(
             huggingface_target_repo_name="test/output-dataset",
             huggingface_token="hf_xxx",
-            export_mode="region"
+            export_mode="region",
         )
 
     @pytest.fixture
@@ -263,9 +243,7 @@ class TestHuggingFacePreprocessor:
     def test_initialization(self, config, mock_factory):
         """Test preprocessor initialization."""
         preprocessor = HuggingFacePreprocessor(
-            input_path="test/input-dataset",
-            config=config,
-            converter_factory=mock_factory
+            input_path="test/input-dataset", config=config, converter_factory=mock_factory
         )
 
         assert preprocessor.state == ProcessorState.INITIALIZED
@@ -273,9 +251,7 @@ class TestHuggingFacePreprocessor:
     def test_preprocess(self, config, mock_factory):
         """Test preprocessing."""
         preprocessor = HuggingFacePreprocessor(
-            input_path="test/input-dataset",
-            config=config,
-            converter_factory=mock_factory
+            input_path="test/input-dataset", config=config, converter_factory=mock_factory
         )
 
         _ = preprocessor.preprocess()
@@ -291,15 +267,13 @@ class TestHuggingFacePreprocessor:
 # Builder Tests
 # ===============================================================================
 
+
 class TestPreprocessorBuilder:
     """Tests for PreprocessorBuilder."""
 
     def test_basic_builder(self):
         """Test basic builder usage."""
-        preprocessor = (
-            PreprocessorBuilder("test/dataset")
-            .build_for_zip("test.zip")
-        )
+        preprocessor = PreprocessorBuilder("test/dataset").build_for_zip("test.zip")
 
         assert isinstance(preprocessor, ZipPreprocessor)
         assert preprocessor.config.huggingface_target_repo_name == "test/dataset"
@@ -322,7 +296,7 @@ class TestPreprocessorBuilder:
         )
 
         config = preprocessor.config
-        assert config.huggingface_token == "hf_xxx"
+        assert config.huggingface_token.get_secret_value() == "hf_xxx"
         assert config.export_mode == "line"
         assert config.crop is True
         assert config.split_train_ratio == 0.8
@@ -332,10 +306,7 @@ class TestPreprocessorBuilder:
 
     def test_builder_for_huggingface(self):
         """Test builder for HuggingFace preprocessor."""
-        preprocessor = (
-            PreprocessorBuilder("test/output")
-            .build_for_huggingface("test/input")
-        )
+        preprocessor = PreprocessorBuilder("test/output").build_for_huggingface("test/input")
 
         assert isinstance(preprocessor, HuggingFacePreprocessor)
 
@@ -343,6 +314,7 @@ class TestPreprocessorBuilder:
 # ===============================================================================
 # Integration Tests
 # ===============================================================================
+
 
 class TestIntegration:
     """Integration tests for the complete workflow."""
@@ -357,7 +329,7 @@ class TestIntegration:
             huggingface_target_repo_name="test/dataset",
             export_mode="line",
             crop=True,
-            batch_size=32
+            batch_size=32,
         )
 
         # Mock the factory
@@ -368,9 +340,7 @@ class TestIntegration:
         mock_factory.create_zip_converter.return_value = mock_converter
 
         preprocessor = ZipPreprocessor(
-            input_path="test.zip",
-            config=config,
-            converter_factory=mock_factory
+            input_path="test.zip", config=config, converter_factory=mock_factory
         )
 
         # Run full workflow

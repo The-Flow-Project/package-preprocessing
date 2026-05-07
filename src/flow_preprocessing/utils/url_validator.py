@@ -2,6 +2,18 @@
 Utility function for URL validation.
 """
 
+import ipaddress
+from urllib.parse import urlparse
+
+
+def _is_private_or_reserved_host(hostname: str) -> bool:
+    """Return True if hostname is a private/loopback/link-local/reserved IP address."""
+    try:
+        ip = ipaddress.ip_address(hostname)
+        return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+    except ValueError:
+        return False  # Hostname string, not an IP literal
+
 
 def validate_url(url: str) -> None:
     """
@@ -10,23 +22,22 @@ def validate_url(url: str) -> None:
     :param url: URL to validate.
     :raises ValueError: If URL is invalid or targets forbidden destinations.
     """
-    from urllib.parse import urlparse
-
     try:
         parsed = urlparse(url)
 
         # Allow only HTTP/HTTPS
-        if parsed.scheme not in ('http', 'https'):
+        if parsed.scheme not in ("http", "https"):
             raise ValueError(f"Only HTTP/HTTPS URLs allowed, got: {parsed.scheme}")
 
-        # Block localhost and private IPs
-        if parsed.hostname in ('localhost', '127.0.0.1', '0.0.0.0'):
-            raise ValueError("Access to localhost/private IPs not allowed")
+        hostname = parsed.hostname or ""
 
-        # Block private IP ranges (optional but recommended)
-        # This is a basic check; consider using ipaddress module for production
-        if parsed.hostname and parsed.hostname.startswith(('192.168.', '10.', '172.')):
-            raise ValueError(f"Access to private IP ranges not allowed: {parsed.hostname}")
+        # Block localhost by name
+        if hostname == "localhost":
+            raise ValueError("Access to localhost not allowed")
+
+        # Block private/loopback/link-local/reserved IPs (IPv4 and IPv6)
+        if _is_private_or_reserved_host(hostname):
+            raise ValueError(f"Access to private/reserved IP addresses not allowed: {hostname}")
 
     except ValueError:
         raise

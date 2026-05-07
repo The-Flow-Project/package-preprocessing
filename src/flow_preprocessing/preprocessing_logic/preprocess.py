@@ -9,31 +9,28 @@ This module provides preprocessing functionality for PageXML datasets with:
 - Optional GPU-accelerated image segmentation
 """
 
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Union, List, Literal
-import datasets
-from pydantic import ValidationError, SecretStr
-from loguru import logger
 import gc
+from abc import ABC, abstractmethod
+from typing import Any, Literal
 
+import datasets
+from flow_segmenter import SegmenterBaseConfig, SegmenterConfig
+from loguru import logger
 from pagexml_hf import XmlConverter
-from flow_segmenter import (
-    SegmenterConfig,
-    SegmenterBaseConfig
-)
+from pydantic import SecretStr, ValidationError
 
 from flow_preprocessing.preprocessing_logic.config import (
+    ExportMode,
     PreprocessorConfig,
     ProcessorState,
-    ExportMode,
 )
 from flow_preprocessing.preprocessing_logic.converter_factory import ConverterFactory
 from flow_preprocessing.utils.url_validator import validate_url
 
-
 # ===============================================================================
 # BASE PREPROCESSOR
 # ===============================================================================
+
 
 class Preprocessor(ABC):
     """
@@ -47,9 +44,7 @@ class Preprocessor(ABC):
     """
 
     def __init__(
-            self,
-            config: PreprocessorConfig,
-            converter_factory: ConverterFactory | None = None
+        self, config: PreprocessorConfig, converter_factory: ConverterFactory | None = None
     ) -> None:
         """
         Initialize the preprocessor.
@@ -62,15 +57,14 @@ class Preprocessor(ABC):
         self._state = ProcessorState.INITIALIZED
         self._dataset: datasets.Dataset | None = None
         self._converter: XmlConverter | None = None
-        self._segmentation_models: Union[List[str], str] | None = None
 
         # Initialize segmenter config
-        self._segmenter_config = self._initialize_segmenter_config(
-            config.segmenter_config
-        )
+        self._segmenter_config = self._initialize_segmenter_config(config.segmenter_config)
         logger.info(f"Preprocessor initialized with config: {config}")
         logger.debug(f"Preprocessor initialized with converter: {self._converter}")
-        logger.debug(f"Preprocessor initialized with segmentation models: {self._segmenter_config}")
+        logger.debug(
+            f"Preprocessor initialized with segmentation models: {self._segmenter_config}"
+        )
 
     # ==================== Properties ====================
 
@@ -158,9 +152,8 @@ class Preprocessor(ABC):
     # ==================== Private Sync Methods ====================
 
     def _initialize_segmenter_config(
-            self,
-            config: Union[SegmenterConfig, SegmenterBaseConfig, dict] | None
-    ) -> Union[SegmenterConfig, SegmenterBaseConfig] | None:
+        self, config: SegmenterConfig | SegmenterBaseConfig | dict | None
+    ) -> SegmenterConfig | SegmenterBaseConfig | None:
         """
         Initialize segmenter configuration.
 
@@ -176,12 +169,14 @@ class Preprocessor(ABC):
                 return SegmenterConfig(**config)
             elif isinstance(config, dict) and self._config.segment == "kraken":
                 return SegmenterBaseConfig(**config)
+            elif isinstance(config, (SegmenterBaseConfig, SegmenterConfig)):
+                return config
+            else:
+                return None
         except ValidationError as e:
             logger.error(f"Invalid segmenter_config: {e}")
             self._set_state(ProcessorState.FAILED)
-            raise ValidationError("Invalid segmenter_config provided.") from e
-
-        return config
+            raise
 
     def _segment_images(self) -> None:
         """
@@ -201,14 +196,15 @@ class Preprocessor(ABC):
 
         if self._config.segment == "yolo":
             from flow_segmenter import SegmenterYolo
-            logger.info("Using YOLO for segmentation.")
-            # Store model names
-            self._segmentation_models = self._segmenter_config.model_names
 
+            logger.info("Using YOLO for segmentation.")
+            if isinstance(self._segmenter_config, SegmenterBaseConfig):
+                self._segmenter_config = SegmenterConfig(**self._segmenter_config.model_dump())
             # Create segmenter (GPU-accelerated if available)
             segmenter = SegmenterYolo(config=self._segmenter_config)
         elif self._config.segment == "kraken":
             from flow_segmenter import SegmenterKrakenLinemasks
+
             logger.info("Using Kraken for segmentation.")
             segmenter = SegmenterKrakenLinemasks(config=self._segmenter_config)
 
@@ -217,17 +213,18 @@ class Preprocessor(ABC):
             export_mode=ExportMode.RAW_XML.value,
             # default: split_train=None,
             allow_empty=self._config.allow_empty_lines,
-            batch_size=self._config.batch_size if self._config.batch_size else 32,
+            batch_size=self._config.batch_size,
         )
 
         # Segment the dataset
         if segmenter is not None:
             self._dataset = segmenter.segment_dataset(
                 segmented_dataset,
-                new_column_name='xml_content',
+                new_column_name="xml_content",
             )
             logger.debug(
-                f"Segmentation completed. Dataset size: {self._dataset.column_names if self._dataset else 'N/A'}")
+                f"Segmentation completed. Dataset size: {self._dataset.column_names if self._dataset else 'N/A'}"
+            )
             logger.debug(f"Segmented dataset: {segmented_dataset.column_names}")
             del segmenter
             gc.collect()
@@ -249,18 +246,28 @@ class Preprocessor(ABC):
         """
         logger.info(f"Converting and uploading with export_mode={self._config.export_mode}")
         if self._config.huggingface_token:
-            huggingface_token = self._config.huggingface_token.get_secret_value() if \
-                type(self._config.huggingface_token) is SecretStr else self._config.huggingface_token
+            huggingface_token = (
+                self._config.huggingface_token.get_secret_value()
+                if isinstance(self._config.huggingface_token, SecretStr)
+                else self._config.huggingface_token
+            )
         else:
             huggingface_token = ""
         logger.debug(f"HuggingFace token provided: {bool(huggingface_token)}")
 
-        return self.converter.convert_and_upload(
+        result = self.converter.convert_and_upload(
             repo_id=self._config.huggingface_target_repo_name,
-            export_mode=self._config.export_mode if self._config.export_mode else ExportMode.RAW_XML.value,
+            export_mode=(
+                self._config.export_mode
+                if self._config.export_mode
+                else ExportMode.RAW_XML.value
+            ),
             token=str(huggingface_token),
-            private=self._config.huggingface_target_repo_private \
-                if self._config.huggingface_target_repo_private else False,
+            private=(
+                self._config.huggingface_target_repo_private
+                if self._config.huggingface_target_repo_private
+                else False
+            ),
             split_train=self._config.split_train_ratio,
             split_seed=self._config.split_seed,
             split_shuffle=self._config.split_shuffle,
@@ -268,10 +275,12 @@ class Preprocessor(ABC):
             min_width=self._config.min_width_line,
             min_height=self._config.min_height_line,
             allow_empty=self._config.allow_empty_lines,
-            batch_size=self._config.batch_size if self._config.batch_size else 32,
-            append=self._config.append if self._config.append else False,
+            batch_size=self._config.batch_size,
+            append=self._config.append,
             line_augment=self._config.augmentation_loops,
         )
+
+        return result if result is not None else self._config.huggingface_target_repo_name
 
     def _set_state(self, state: ProcessorState) -> None:
         """
@@ -287,6 +296,7 @@ class Preprocessor(ABC):
 # CONCRETE IMPLEMENTATIONS
 # ===============================================================================
 
+
 class ZipPreprocessor(Preprocessor):
     """
     Preprocessor for ZIP files (local or remote).
@@ -298,10 +308,10 @@ class ZipPreprocessor(Preprocessor):
     """
 
     def __init__(
-            self,
-            input_path: str,
-            config: PreprocessorConfig,
-            converter_factory: ConverterFactory | None = None
+        self,
+        input_path: str,
+        config: PreprocessorConfig,
+        converter_factory: ConverterFactory | None = None,
     ) -> None:
         """
         Initialize ZIP preprocessor.
@@ -318,7 +328,7 @@ class ZipPreprocessor(Preprocessor):
             raise TypeError("input_path must be a string")
 
         # Validate URL if it's a remote URL
-        if input_path.startswith('http://') or input_path.startswith('https://'):
+        if input_path.startswith("http://") or input_path.startswith("https://"):
             validate_url(input_path)
 
         self._input_path = input_path
@@ -336,7 +346,7 @@ class ZipPreprocessor(Preprocessor):
             converter = self._converter_factory.create_zip_converter(
                 zip_path=self._input_path,
                 parse_xml=self._config.requires_xml_parsing,
-                dataset=self._dataset
+                dataset=self._dataset,
             )
             logger.info("XmlConverter created successfully.")
             return converter
@@ -366,10 +376,10 @@ class HuggingFacePreprocessor(Preprocessor):
     """
 
     def __init__(
-            self,
-            input_path: str,
-            config: PreprocessorConfig,
-            converter_factory: ConverterFactory | None = None
+        self,
+        input_path: str,
+        config: PreprocessorConfig,
+        converter_factory: ConverterFactory | None = None,
     ) -> None:
         """
         Initialize HuggingFace preprocessor.
@@ -394,7 +404,7 @@ class HuggingFacePreprocessor(Preprocessor):
                 repo_id=self._input_path,
                 token=self._config.huggingface_token,
                 parse_xml=self._config.requires_xml_parsing,
-                dataset=self._dataset
+                dataset=self._dataset,
             )
             logger.info("XmlConverter created successfully.")
             return converter
@@ -419,6 +429,7 @@ class HuggingFacePreprocessor(Preprocessor):
 # BUILDER PATTERN (Optional - for easier usage)
 # ===============================================================================
 
+
 class PreprocessorBuilder:
     """
     Builder for creating Preprocessor instances with fluent API.
@@ -441,45 +452,45 @@ class PreprocessorBuilder:
 
         :param huggingface_target_repo_name: Target HuggingFace repository.
         """
-        self._config_dict: Dict[str, Any] = {
-            'huggingface_target_repo_name': huggingface_target_repo_name
+        self._config_dict: dict[str, Any] = {
+            "huggingface_target_repo_name": huggingface_target_repo_name
         }
 
-    def with_token(self, token: str) -> 'PreprocessorBuilder':
+    def with_token(self, token: str) -> "PreprocessorBuilder":
         """
         Set HuggingFace token.
 
         :param token: HuggingFace access token.
         :return: Builder instance for chaining.
         """
-        self._config_dict['huggingface_token'] = token
+        self._config_dict["huggingface_token"] = token
         return self
 
-    def with_export_mode(self, mode: str) -> 'PreprocessorBuilder':
+    def with_export_mode(self, mode: str) -> "PreprocessorBuilder":
         """
         Set export mode.
 
         :param mode: Export mode ('line', 'region', 'text', 'window', 'raw_xml').
         :return: Builder instance for chaining.
         """
-        self._config_dict['export_mode'] = mode
+        self._config_dict["export_mode"] = mode
         return self
 
-    def with_crop(self, crop: bool = True) -> 'PreprocessorBuilder':
+    def with_crop(self, crop: bool = True) -> "PreprocessorBuilder":
         """
         Enable image cropping.
 
         :param crop: Whether to crop images.
         :return: Builder instance for chaining.
         """
-        self._config_dict['crop'] = crop
+        self._config_dict["crop"] = crop
         return self
 
     def with_segmentation(
-            self,
-            segmenter_config: Union[SegmenterConfig, SegmenterBaseConfig, dict],
-            backend: Literal["yolo", "kraken"] | None = None
-    ) -> 'PreprocessorBuilder':
+        self,
+        segmenter_config: SegmenterConfig | SegmenterBaseConfig | dict,
+        backend: Literal["yolo", "kraken"] | None = None,
+    ) -> "PreprocessorBuilder":
         """
         Enable image segmentation.
 
@@ -495,16 +506,13 @@ class PreprocessorBuilder:
             else:
                 raise ValueError("backend must be provided when segmenter_config is a dict")
 
-        self._config_dict['segment'] = backend
-        self._config_dict['segmenter_config'] = segmenter_config
+        self._config_dict["segment"] = backend
+        self._config_dict["segmenter_config"] = segmenter_config
         return self
 
     def with_split(
-            self,
-            ratio: float,
-            seed: int = 42,
-            shuffle: bool = True
-    ) -> 'PreprocessorBuilder':
+        self, ratio: float, seed: int = 42, shuffle: bool = True
+    ) -> "PreprocessorBuilder":
         """
         Configure dataset splitting.
 
@@ -513,16 +521,14 @@ class PreprocessorBuilder:
         :param shuffle: Whether to shuffle before splitting.
         :return: Builder instance for chaining.
         """
-        self._config_dict['split_train_ratio'] = ratio
-        self._config_dict['split_seed'] = seed
-        self._config_dict['split_shuffle'] = shuffle
+        self._config_dict["split_train_ratio"] = ratio
+        self._config_dict["split_seed"] = seed
+        self._config_dict["split_shuffle"] = shuffle
         return self
 
     def with_line_filtering(
-            self,
-            min_width: int | None = None,
-            min_height: int | None = None
-    ) -> 'PreprocessorBuilder':
+        self, min_width: int | None = None, min_height: int | None = None
+    ) -> "PreprocessorBuilder":
         """
         Configure line filtering.
 
@@ -531,39 +537,39 @@ class PreprocessorBuilder:
         :return: Builder instance for chaining.
         """
         if min_width is not None:
-            self._config_dict['min_width_line'] = min_width
+            self._config_dict["min_width_line"] = min_width
         if min_height is not None:
-            self._config_dict['min_height_line'] = min_height
+            self._config_dict["min_height_line"] = min_height
         return self
 
-    def with_batch_size(self, batch_size: int) -> 'PreprocessorBuilder':
+    def with_batch_size(self, batch_size: int) -> "PreprocessorBuilder":
         """
         Set batch size for processing.
 
         :param batch_size: Batch size for dataset operations.
         :return: Builder instance for chaining.
         """
-        self._config_dict['batch_size'] = batch_size
+        self._config_dict["batch_size"] = batch_size
         return self
 
-    def private(self, is_private: bool = True) -> 'PreprocessorBuilder':
+    def private(self, is_private: bool = True) -> "PreprocessorBuilder":
         """
         Set repository privacy.
 
         :param is_private: Whether the output repository should be private.
         :return: Builder instance for chaining.
         """
-        self._config_dict['huggingface_target_repo_private'] = is_private
+        self._config_dict["huggingface_target_repo_private"] = is_private
         return self
 
-    def append(self, should_append: bool = True) -> 'PreprocessorBuilder':
+    def append(self, should_append: bool = True) -> "PreprocessorBuilder":
         """
         Set append mode.
 
         :param should_append: Whether to append to existing dataset.
         :return: Builder instance for chaining.
         """
-        self._config_dict['append'] = should_append
+        self._config_dict["append"] = should_append
         return self
 
     def build_for_zip(self, zip_path: str) -> ZipPreprocessor:
