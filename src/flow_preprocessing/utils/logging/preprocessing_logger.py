@@ -3,9 +3,6 @@ Logger configuration for the flow-preprocessing package with loguru.
 """
 
 import sys
-from pathlib import Path
-
-from flow_segmenter import setup_logger as segmenter_setup_logger
 from loguru import logger
 
 # AIDEV-NOTE: Silence this package's logs by default — host apps opt in via logger.enable("flow_preprocessing").

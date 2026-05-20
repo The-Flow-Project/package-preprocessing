@@ -6,7 +6,6 @@
 PYTEST := uv run pytest
 BLACK  := uv run black
 RUFF   := uv run ruff
-ISORT  := uv run isort
 MYPY   := uv run mypy
 SPHINX := uv run sphinx-build
 
@@ -49,9 +48,6 @@ lint:
 	$(MYPY) $(SRC_DIR)
 
 format:
-	@echo "Running isort..."
-	$(ISORT) $(SRC_DIR) $(TEST_DIR)
-	@echo ""
 	@echo "Running black..."
 	$(BLACK) $(SRC_DIR) $(TEST_DIR)
 
@@ -59,18 +55,12 @@ fix:
 	@echo "Auto-fixing with ruff..."
 	$(RUFF) check --fix $(SRC_DIR) $(TEST_DIR)
 	@echo ""
-	@echo "Running isort..."
-	$(ISORT) $(SRC_DIR) $(TEST_DIR)
-	@echo ""
 	@echo "Running black..."
 	$(BLACK) $(SRC_DIR) $(TEST_DIR)
 
 check:
 	@echo "Checking format with black..."
 	$(BLACK) --check $(SRC_DIR) $(TEST_DIR)
-	@echo ""
-	@echo "Checking imports with isort..."
-	$(ISORT) --check-only $(SRC_DIR) $(TEST_DIR)
 	@echo ""
 	@echo "Checking with ruff..."
 	$(RUFF) check $(SRC_DIR) $(TEST_DIR)
